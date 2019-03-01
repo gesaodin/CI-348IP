@@ -154,7 +154,7 @@ class KCargador extends CI_Model{
       //if($Bnf->cedula == "3578455") {
       //   print_r($Bnf);
       //}
-      //echo $linea . "\n";
+      echo $linea . "\n";
       //
       //  fputs($file,$linea);
       //   fputs($file,"\n");
@@ -214,14 +214,16 @@ class KCargador extends CI_Model{
         $CalculoLote->Ejecutar();
         //isset($this->_MapWNomina)
         $segmentoincial = '';
-        print_r($this->_MapWNomina['Concepto']);
-        $cant = 3; //count($this->_MapWNomina['Concepto']);
+       
+        $cant = count($this->_MapWNomina['Concepto']);
         $map = $this->_MapWNomina['Concepto'];
-        for ($i= 0; $i < $cant; $i++){           
-          $segmentoincial .= $Bnf->Concepto[$val['codigo']]['mt'] . ";";
+        print_r($map[0]);
+        for ($i= 0; $i < $cant; $i++){
+          $rs = $map[$i]['codigo'];
+          $segmentoincial .= $Bnf->Concepto[$rs]['mt'] . ";";
         }
-
         
+
         // $segmentoincial = $Bnf->grado_codigo . ';' .
         //                   $Bnf->sueldo_base . ';' .
         //                   $Bnf->prima_transporte . ';' .
