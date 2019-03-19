@@ -55,18 +55,19 @@ class KCalculoLote extends CI_Model{
   function Ejecutar(){
     $this->AntiguedadGrado();
     $this->TiempoServicios();
+    
     $cod = $this->Beneficiario->grado_codigo . $this->Beneficiario->antiguedad_grado;
 
     $sueldo = $this->Directiva['sb'];
 
     $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
-
+    $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 
       'ABV' =>  'SB', 
       'TIPO' => 1
     );
-
+    //print_r($this->Beneficiario->sueldo_base);
     $this->OperarCalculos();
     $this->OperarConceptos();
     $this->SueldoMensual();
@@ -114,17 +115,18 @@ class KCalculoLote extends CI_Model{
       );
     }
    //Formular Conceptos
-   foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
-    $fnx = $obj['fn'];
-    $rs = $obj['rs'];     
-    eval('$valor = ' . $fnx);
-    $this->Beneficiario->Concepto[$rs] = array(
-      'mt' => round($valor,2), 
-      'ABV' =>  $obj['abv'], 
-      'TIPO' => $obj['tipo'] 
-    );
-    $valor = 0;
-  }
+    foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
+      $fnx = $obj['fn'];
+      $rs = $obj['rs'];     
+      eval('$valor = ' . $fnx);
+      $this->Beneficiario->Concepto[$rs] = array(
+        'mt' => round($valor,2), 
+        'ABV' =>  $obj['abv'], 
+        'TIPO' => $obj['tipo'] 
+      );
+      $valor = 0;
+    }
+
 
   }
 
@@ -245,7 +247,8 @@ class KCalculoLote extends CI_Model{
   * @return int
   */
   function TiempoServicios(){
-
+      //echo "Fechas ", $this->Beneficiario->fecha_ingreso, "   ", $this->Beneficiario->fecha_retiro ;
+      //echo "<br>";
       if($this->Beneficiario->ano_reconocido != 0){
         $anos = $this->__fechaReconocida();
         $this->Beneficiario->tiempo_servicio = $anos['e'];
@@ -255,7 +258,8 @@ class KCalculoLote extends CI_Model{
         $this->Beneficiario->tiempo_servicio = $anos['e'];
         $this->Beneficiario->tiempo_servicio_aux = $anos['n'];
       }
-
+      //print_r($this->Beneficiario->tiempo_servicio);
+      //print_r("<br>");
   }
 
   /**

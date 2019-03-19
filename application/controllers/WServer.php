@@ -206,18 +206,46 @@ class WServer extends REST_Controller{
         
     public function gnomina_post(){
         $this->load->model('kernel/KSensor');
-		$fecha = date('d/m/Y H:i:s');
-		$firma = md5($fecha);
-		$this->load->model('kernel/KCargador');
+        $fecha = date('d/m/Y H:i:s');
+        $firma = md5($fecha);
+        $this->load->model('kernel/KCargador');
         $data['id'] = $this->post("id"); //Directiva
+        $data['fecha'] = $this->post("fecha");
+
         $this->KCargador->_MapWNomina = $this->post();
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
-        $segmentoincial = '';
-        
-        
-        $this->response($segmentoincial);
-
+        $segmento = array(
+            'total' => number_format($this->KCargador->SSueldoBase, 2, ',','.'),
+            'registros' => 3,
+            'md5' => $firma,
+            'paralizados' => 0,
+            'archivo' => 'http://localhost/CI-3.1.10/tmp/' . $firma . '.csv'
+        );        
+        $this->response($segmento);
     }
+
+
+    
+	function ldirectiva_get($id){		
+		$this->load->model("beneficiario/MDirectiva");
+		$this->response($this->MDirectiva->listarTodo($id));
+	}
+
+	
+	function clonardirectiva_get(){	
+		$this->load->model("beneficiario/MDirectiva");
+		$data = json_decode($_POST['data']);
+        $this->MDirectiva->crearDirectiva($data);
+        $this->response();
+	}
+
+	function eliminardirectiva_get(){
+		$this->load->model("beneficiario/MDirectiva");
+		$data = json_decode($_POST['data']);
+        $this->MDirectiva->Eliminar($data->id);
+        $this->response();
+	}
+
 
 }
 	

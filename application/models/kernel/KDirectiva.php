@@ -136,6 +136,7 @@ class KDirectiva extends CI_Model{
     //print_r($this->KFunciones);
     $this->KPrimas->Cargar($list);
     $this->KConceptos->Cargar($list);
+    // print("<pre>");
     // print_r($list);
     return $list;
 

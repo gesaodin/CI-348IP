@@ -91,6 +91,31 @@ class KConceptos extends CI_Model{
 
     }
     return true;
-
   }
+
+  /**
+  * Obtener detalles de las prima por Directiva Especifica
+  *
+  * @access public
+  * @param int
+  * @return array
+  */
+  public function CargarConceptos(){
+
+    $consultaConcepto = "SELECT * FROM space.conceptos WHERE componente = 'TODOS' AND estatus=1";
+    $obj = $this->DBSpace->consultar($consultaConcepto);    
+    foreach ($obj->rs as $clv => $v) {    
+      $Dir['fnxC'][] = array(
+          'rs' => $v->codigo, 
+          'fn' => $v->forumula, 
+          'abv' => $v->descripcion, 
+          'tipo' => $v->tipo,
+          'part' => $v->partida
+        ); 
+
+    }
+    return true;
+  }
+
+
 }

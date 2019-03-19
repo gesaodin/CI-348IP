@@ -272,14 +272,15 @@ class MDirectiva extends CI_Model{
 
   public function crearDirectiva($obj){
     $sConsulta = 'INSERT INTO directiva_sueldo(
-            id, nombre, numero, f_vigencia, udad_tributaria, observaciones,
-            status_id, f_inicio, f_creacion, usr_creacion, f_ult_modificacion,
-            usr_modificacion, observ_ult_modificacion, tipo_directiva)
-         select nextval(\'directiva_sueldo_id_seq\'),\'' . $obj->nombre . '\' as nombre,\'' . $obj->observacion . '\' as numero,\'' . $obj->fecha_vigencia . '\' as f_vigencia, ' . $obj->unidad_tributaria . ',\'' . $obj->numero . '\' as observaciones,
-               status_id,\'' . $obj->fecha_inicio . '\' as f_inicio,Now(),\'' . $_SESSION['usuario'] . '\',Now(),
-               \'' . $_SESSION['usuario'] . '\',\'' . $obj->numero . '\' as observ_ult_modificacion, tipo_directiva
-          FROM directiva_sueldo
-          WHERE id=' . $obj->id . ' RETURNING id';
+        id, nombre, numero, f_vigencia, udad_tributaria, observaciones,
+        status_id, f_inicio, f_creacion, usr_creacion, f_ult_modificacion,
+        usr_modificacion, observ_ult_modificacion, tipo_directiva)
+      select nextval(\'directiva_sueldo_id_seq\'),\'' . $obj->nombre . '\' as nombre, \'' . $obj->observacion . '\' as numero, 
+      \'' . $obj->fecha_vigencia . '\' as f_vigencia, ' . $obj->unidad_tributaria . ',\'' . $obj->numero . '\' as observaciones,
+            status_id,\'' . $obj->fecha_inicio . '\' as f_inicio,Now(),\'' . $obj->usuario . '\', Now(),
+            \'' . $obj->usuario . '\',\'' . $obj->numero . '\' as observ_ult_modificacion, tipo_directiva
+      FROM directiva_sueldo
+      WHERE id=' . $obj->id . ' RETURNING id';
 
 
       $id = 0;
@@ -296,18 +297,18 @@ class MDirectiva extends CI_Model{
                           f_creacion, usr_creacion, f_ult_modificacion, usr_modificacion,
                           observ_ult_modificacion)
               select  nextval(\'detalle_directiva_id_seq\'),(select id from directiva_sueldo  order by  id DESC limit 1), grado_id,
-              (sueldo_base * ' . $obj->porcentaje . ')/100, anio, status_id,
-                          Now() as f_creacion, \'' . $_SESSION['usuario'] . '\', Now(), \'' . $_SESSION['usuario'] . '\',
+              sueldo_base  + ((sueldo_base * ' . $obj->porcentaje . ')/100), anio, status_id,
+                          Now() as f_creacion, \'' . $obj->usuario . '\', Now(), \'' . $obj->usuario . '\',
                           \'' . $obj->numero . '\' as obser_ult_modificacion
               from detalle_directiva
               where directiva_sueldo_id=' . $obj->id;
 
       $rs = $this->Dbpace->consultar($sConsulta);
-      echo "Proceso Exitoso";
+      //echo "Proceso Exitoso";
   }
   function Eliminar($id){
     $sConsulta = 'DELETE FROM detalle_directiva WHERE directiva_sueldo_id=' . $id . '; DELETE FROM directiva_sueldo WHERE id=' . $id;
-    echo $sConsulta;
+    //echo $sConsulta;
     $rs = $this->Dbpace->consultar($sConsulta);
     return $rs;
   }

@@ -251,6 +251,11 @@ class MBeneficiario extends CI_Model{
 	/**
 	* @var string
 	*/
+	var $porcentaje = 0;
+
+	/**
+	* @var string
+	*/
 	var $tiempo_servicio_aux = 0;
 
 	/**
