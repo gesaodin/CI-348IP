@@ -50,11 +50,7 @@ class MHistorialSueldo extends CI_Model{
 			$lst[$ced] = $lstH;
 			$i++;				
 		}
-		/**
-		echo '<pre>';		
-		print_r($lst);
-		echo 'Registros Consultados: ' . $i . '<br><br>';
-		**/
+		
 		return $lst;
 	}
 

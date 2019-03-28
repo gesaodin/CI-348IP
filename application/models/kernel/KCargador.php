@@ -146,8 +146,10 @@ class KCargador extends CI_Model{
           beneficiario
         JOIN
           grado ON beneficiario.grado_id=grado.codigo AND beneficiario.componente_id= grado.componente_id
-        WHERE grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 4260, 8480, 5320) --AND beneficiario.cedula='11738759'
-          ";
+        WHERE 
+        grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 4260, 8480, 5320) 
+        -- LIMIT 10
+        -- AND beneficiario.cedula='11738759'";
 
     $con = $this->DBSpace->consultar($sConsulta);
 
@@ -307,6 +309,8 @@ class KCargador extends CI_Model{
 
       $this->SSueldoBase += $Bnf->sueldo_base;
       $this->Neto += $neto;
+      // echo ("<pre>");
+      // print_r(count($Perceptron->Neurona));
       return $linea;
 
   }

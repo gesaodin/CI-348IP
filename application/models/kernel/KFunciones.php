@@ -54,5 +54,20 @@ class KFunciones extends CI_Model{
 
   }
 
+  public function CargarDos(&$Dir){
+    $sConsulta = '
+      SELECT fx.oid, fnx,rs FROM space.fnprima AS fn 
+      JOIN space.fnformula AS fx ON fn.func=fx.oid
+      WHERE oidd= ' . $Dir['oid'] . '  ORDER BY refe';
+    
+    $obj = $this->DBSpace->consultar($sConsulta);    
+    foreach ($obj->rs as $clv => $v) {    
+        $Dir['fnx'][] = array('oid' => $v->oid, 'fn' => $v->fnx, 'rs' => $v->rs); 
+
+    }
+    return true;
+
+  }
+
 
 }

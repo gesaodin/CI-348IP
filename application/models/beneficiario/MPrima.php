@@ -227,5 +227,17 @@ class MPrima extends CI_Model{
        return $valor;
   }
 
+  /**
+  * Actualizar Primas #005
+  *
+  * @access public
+  * @param array
+  * @return boolean
+  */
+  public function ActualizarPrima($arr){
+    $sConsulta = 'UPDATE space.fnformula SET fnx=\'' . $arr['formula'] . '\' WHERE oid =' . $arr['id'];
+    $obj = $this->Dbpace->consultar($sConsulta);
+    return true;
+  }
 
 }

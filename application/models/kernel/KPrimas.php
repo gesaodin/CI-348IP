@@ -87,7 +87,7 @@ class KPrimas extends CI_Model{
       ORDER BY grado_id, prima_id ';
     //echo $sConsulta;
 	  $obj = $this->DBSpace->consultar($sConsulta);
-    $sb = &$Dir['sb'];
+    $sb = &$Dir['XXXXXXXX'];
 		$lstH = array();
 		$gra = 0;
 		$i = 0;

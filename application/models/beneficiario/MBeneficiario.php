@@ -99,6 +99,11 @@ class MBeneficiario extends CI_Model{
 	var $grado_codigo = 0;
 
 	/**
+	* @var double
+	*/
+	var $porcentaje = 0.00;
+
+	/**
 	* @var string
 	*/
 	var $ano_reconocido;
@@ -256,6 +261,11 @@ class MBeneficiario extends CI_Model{
 	var $prima_profesionalizacion = 0.00;
 
 	/**
+	* @var double
+	*/
+	var $prima_profesionalizacion_mt = 0.00;
+
+	/**
 	* @var MPrima
 	*/
 	var $Prima = array();
@@ -301,6 +311,11 @@ class MBeneficiario extends CI_Model{
 	var $Calculo = array();
 
 	/**
+	* @var Concepto
+	*/
+	var $Concepto = array();
+
+	/**
 	* @var MOrdenPago
 	*/
 	var $HistorialOrdenPagos = array();
@@ -321,6 +336,9 @@ class MBeneficiario extends CI_Model{
 		$this->load->model('beneficiario/MMedidaJudicial');
 		$this->load->model('beneficiario/MDirectiva');
 		$this->load->model('beneficiario/MCalculo');
+		$this->load->model('kernel/KCalculoLote');
+    $this->load->model('kernel/KDirectiva');
+    
 
 		$this->Componente = new $this->MComponente();
 
@@ -408,21 +426,16 @@ class MBeneficiario extends CI_Model{
 				$this->profesionalizacion = $val->st_profesion;
         $this->monto_especial = $val->monto_especial;
 				$this->fecha_retiro = $val->f_retiro;
+				$this->grado_codigo = $val->grado_id;
         $fecha = $val->f_retiro;
 				$this->fecha_retiro_efectiva = $val->f_retiro_efectiva;
 				$this->numero_cuenta = $val->numero_cuenta;
 				$this->motivo_paralizacion = $val->motivo_paralizacion;
 				$this->fecha_reincorporacion = $val->f_reincorporacion;
 				$this->observacion = $val->observ_ult_modificacion;
+				$this->porcentaje = $val->porcentaje;
 
 				$this->Componente->ObtenerConGrado($val->componente_id, $val->grado_id, $val->st_no_ascenso);
-        $arr['id'] = $id;
-    		$arr['url'] = 'http://192.168.6.45:8080/devel/api/militar/crud/' . $arr['id'];
-    		$api = $this->MCurl->Cargar_API($arr);
-
-    		$Militar = $api['obj'];
-        $this->nombres = $Militar->Persona->DatoBasico->nombreprimero;
-        $this->apellidos = $Militar->Persona->DatoBasico->apellidoprimero;
 
 			}
 			$this->HistorialMovimiento = $this->MHistorialMovimiento->listar($id);
@@ -431,7 +444,11 @@ class MBeneficiario extends CI_Model{
 			$this->HistorialAnticipo = $this->MHistorialAnticipo->listar($id);
 
 			if($fecha != '') $this->fecha_retiro = $fecha; //En el caso de calcular finiquitos
-			$this->MCalculo->iniciarCalculosBeneficiario($this->MBeneficiario);
+			$Directivas = $this->KDirectiva->Cargar('',  date("Y-m-d")); //Directivas
+			//print_r($this->MBeneficiario);
+			$this->KCalculoLote->Instanciar($this->MBeneficiario, $Directivas);
+			$this->KCalculoLote->Ejecutar();
+
 		}else{
       $arr['id'] = $id;
       $arr['url'] = 'http://192.168.6.45:8080/devel/api/militar/crud/' . $arr['id'];
@@ -502,11 +519,12 @@ class MBeneficiario extends CI_Model{
 				' . $tbl . '.sexo,
 				' . $tbl . '.observ_ult_modificacion,
 				' . $tbl . '.motivo_paralizacion,
-        ' . $tbl . '.monto_especial,
+				' . $tbl . '.monto_especial,
+				' . $tbl . '.porcentaje,
 				status.descripcion AS estatus_descripcion
 			FROM
 				' . $tbl . '
-				JOIN status ON
+				LEFT JOIN status ON
 					' . $tbl . '.status_id=status.id
 			WHERE
 				beneficiario.cedula=\'' . $cedula . '\'';

@@ -36,8 +36,12 @@ class KMedidaJudicial extends CI_Model{
 
 	public function Ejecutar($sb = 0.00, $estatus = 0, $fnx = ''){
 		if ($fnx != '') {
-			$sueldo_base = $sb;
-			eval('$valor = ' . $fnx);
+			try {
+				$sueldo_base = $sb;
+				eval('$valor = ' . $fnx);
+			} catch (Throwable $t) {
+				$valor = 0;
+			}			
 			return round($valor,2);
 		}else{
 			return 0;

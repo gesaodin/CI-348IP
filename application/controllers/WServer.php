@@ -26,8 +26,6 @@ class WServer extends REST_Controller{
         
     }
 
-
-
     public function index_get($id){
         $this->load->model("fisico/MBeneficiario");
         $this->MBeneficiario->obtenerID($id);
@@ -155,7 +153,6 @@ class WServer extends REST_Controller{
         return $v;
     }
 
-
     public function book_get($id,$o){
         $this->response([
 			'returned from delete:' => $o,
@@ -190,7 +187,6 @@ class WServer extends REST_Controller{
         $this->response($rs);       
     }
 
-
 	public function directiva_get(){
 		$this->load->model('kernel/KDirectiva');
 		$this->load->model('beneficiario/MComponente');
@@ -223,27 +219,59 @@ class WServer extends REST_Controller{
         );        
         $this->response($segmento);
     }
-
-
     
-	function ldirectiva_get($id){		
-		$this->load->model("beneficiario/MDirectiva");
-		$this->response($this->MDirectiva->listarTodo($id));
+	function ldirectiva_get($id){
+        $this->load->model("beneficiario/MDirectiva");
+        $dt = $this->MDirectiva->listarTodo($id);    
+		$this->response($dt);
 	}
-
 	
-	function clonardirectiva_get(){	
+	function clonardirectiva_post(){	
 		$this->load->model("beneficiario/MDirectiva");
-		$data = json_decode($_POST['data']);
-        $this->MDirectiva->crearDirectiva($data);
-        $this->response();
+        $data = $this->post();
+        
+        $result = $this->MDirectiva->crearDirectiva($data);
+        $segmento = array(
+            'msj' => "Creación de directivas lista",
+            'ok' => "200 OK",
+            'rs' => $result
+        );
+        $this->response($segmento);
 	}
 
-	function eliminardirectiva_get(){
+	function eliminardirectiva_get($id){
 		$this->load->model("beneficiario/MDirectiva");
-		$data = json_decode($_POST['data']);
-        $this->MDirectiva->Eliminar($data->id);
-        $this->response();
+		$data = $this->post();
+        $this->MDirectiva->Eliminar($id);
+        $segmento = array(
+            'msj' => "Eliminación exitosa",
+            'ok' => "200 OK"
+        );
+        $this->response($segmento);
+    }
+    
+    function actualizarprima_post(){	
+		$this->load->model("beneficiario/MPrima");
+        $data = $this->post();
+        $result = $this->MPrima->ActualizarPrima($data);
+        $segmento = array(
+            'msj' => "Actualizando prima",
+            'ok' => "200 OK",
+            'rs' => $result
+        );
+        $this->response($segmento);
+	}
+
+    function actualizardirectiva_post(){	
+		$this->load->model("beneficiario/MDirectiva");
+        $data = $this->post();
+        $result = $this->MDirectiva->ActualizarDetalle($data);
+        $segmento = array(
+            'msj' => "Actualizando prima",
+            'ok' => "200 OK",
+            'rs' => $result
+        );
+        $this->response($segmento);
 	}
 
 

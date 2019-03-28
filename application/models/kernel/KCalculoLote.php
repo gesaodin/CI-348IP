@@ -57,7 +57,7 @@ class KCalculoLote extends CI_Model{
     $this->TiempoServicios();
     
     $cod = $this->Beneficiario->grado_codigo . $this->Beneficiario->antiguedad_grado;
-
+    
     $sueldo = $this->Directiva['sb'];
 
     $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
@@ -67,17 +67,11 @@ class KCalculoLote extends CI_Model{
       'ABV' =>  'SB', 
       'TIPO' => 1
     );
-    //print_r($this->Beneficiario->sueldo_base);
+    // echo ("<pre>");
+    // print_r($this->Directiva);
     $this->OperarCalculos();
     $this->OperarConceptos();
     $this->SueldoMensual();
-    //$this->GenerarAlicuotaAguinaldo();
-    //$this->GenerarAlicuotaVacaciones();
-    //$this->GenerarSueldoIntegral();
-    //$this->GenerarAsignacionAntiguedad();
-    //$this->GenerarNoDepositadoBanco();
-    //$this->GenerarGrarantias();
-    //$this->GenerarDiasAdicionales();
 
   }
 
@@ -91,9 +85,15 @@ class KCalculoLote extends CI_Model{
 
     $valor = 0;
     $this->Beneficiario->monto_total_prima = 0;
+    $grado = $this->Beneficiario->grado_codigo;
+    $componente = $this->Beneficiario->componente_id;
     $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
     $unidad_tributaria =  $this->Directiva['ut'];
     $sueldo_base = $this->Beneficiario->sueldo_base;
+    $sueldo_basico = $this->Beneficiario->sueldo_base;
+    $sueldo_minimo = $this->Directiva['salario'];
+    $unidad_tributaria = $this->Directiva['ut'];
+
     $no_ascenso = $this->Beneficiario->no_ascenso;
     $numero_hijos = $this->Beneficiario->numero_hijos;
     $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;

@@ -251,7 +251,7 @@ class MBeneficiario extends CI_Model{
 	/**
 	* @var string
 	*/
-	var $porcentaje = 0;
+	var $porcentaje = 0.00;
 
 	/**
 	* @var string
@@ -391,8 +391,9 @@ class MBeneficiario extends CI_Model{
 		$this->load->model('fisico/MHistorialAnticipo');
 		$this->load->model('fisico/MHistorialMovimiento');
 		$this->load->model('fisico/MMedidaJudicial');
-		$this->load->model('kernel/KDirectiva');
 		$this->load->model('kernel/KCalculo');
+		$this->load->model('kernel/KCalculoLote');
+    $this->load->model('kernel/KDirectiva');
 
 		$this->Componente = new $this->MComponente();
 
@@ -460,46 +461,46 @@ class MBeneficiario extends CI_Model{
 				$this->estatus_activo = $val->status_id;
 				$this->estatus_descripcion = $val->estatus_descripcion;
 				$this->numero_hijos = $val->n_hijos;
-
 				$this->tiempo_servicio_db = $val->tiempo_servicio; //El tiempo es una herencia referencial al Beneficiario en MCalculo
 				$this->fecha_ingreso = $val->fecha_ingreso;
 				$this->fecha_ingreso_sistema = $val->f_ingreso_sistema;
-
 				$this->ano_reconocido = $val->anio_reconocido;
 				$this->mes_reconocido = $val->mes_reconocido;
 				$this->dia_reconocido = $val->dia_reconocido;
 				$this->sexo = $val->sexo;
 				$this->usuario_creador = $val->usr_creacion;
-
 				$this->usuario_modificacion = $val->usr_modificacion;
-
 				$this->fecha_ultima_modificacion = $val->f_ult_modificacion;
 				$this->fecha_creacion = $val->f_creacion;
-
 				$this->fecha_ultimo_ascenso = $val->f_ult_ascenso;
-
 				$this->no_ascenso = $val->st_no_ascenso;
 				$this->profesionalizacion = $val->st_profesion;
         $this->monto_especial = $val->monto_especial;
 				$this->fecha_retiro = $val->f_retiro;
+				$this->grado_codigo = $val->grado_id;
+        $fecha = $val->f_retiro;
 				$this->fecha_retiro_efectiva = $val->f_retiro_efectiva;
 				$this->numero_cuenta = $val->numero_cuenta;
 				$this->motivo_paralizacion = $val->motivo_paralizacion;
 				$this->fecha_reincorporacion = $val->f_reincorporacion;
 				$this->observacion = $val->observ_ult_modificacion;
+				$this->porcentaje = $val->porcentaje;
 
 				$this->Componente->ObtenerConGrado($val->componente_id, $val->grado_id, $val->st_no_ascenso);
 
 			}
-			$this->HistorialSueldo = $this->MHistorialSueldo->listar($id);
-			$this->HistorialMovimiento = $this->MHistorialMovimiento->listar($id);
-			$this->MedidaJudicial = $this->MMedidaJudicial->listar($id, $this->fecha_retiro);
-			$this->MedidaJudicialActiva = $this->MMedidaJudicial->listar($id, $this->fecha_retiro, true);
-			$this->HistorialAnticipo = $this->MHistorialAnticipo->listar($id);
+			//$this->HistorialSueldo = $this->MHistorialSueldo->listar($id);
+			//$this->HistorialMovimiento = $this->MHistorialMovimiento->listar($id);
+			// $this->MedidaJudicial = $this->MMedidaJudicial->listar($id, $this->fecha_retiro);
+			// $this->MedidaJudicialActiva = $this->MMedidaJudicial->listar($id, $this->fecha_retiro, true);
+			// $this->HistorialAnticipo = $this->MHistorialAnticipo->listar($id);
 
 			if($fecha != '') $this->fecha_retiro = $fecha; //En el caso de calcular finiquitos
-			$this->KCalculo->iniciarCalculosBeneficiario($this->MBeneficiario);
-			//$this->Calculo =
+			// $this->KCalculo->iniciarCalculosBeneficiario($this->MBeneficiario);
+			$Directivas = $this->KDirectiva->Cargar('',  date("Y-m-d")); //Directivas
+			//print_r($this->MBeneficiario);
+			$this->KCalculoLote->Instanciar($this->MBeneficiario, $Directivas);
+			$this->KCalculoLote->Ejecutar();
 		}
 	}
 
@@ -545,14 +546,13 @@ class MBeneficiario extends CI_Model{
 				' . $tbl . '.observ_ult_modificacion,
 				' . $tbl . '.motivo_paralizacion,
         ' . $tbl . '.monto_especial,
-				beneficiario_calc.numero_cuenta,
+				' . $tbl . '.numero_cuenta,
+				' . $tbl . '.porcentaje,
 				status.descripcion AS estatus_descripcion
 			FROM
 				' . $tbl . '
-				LEFT JOIN beneficiario_calc ON
-					' . $tbl . '.cedula=beneficiario_calc.cedula
-				JOIN status ON
-					' . $tbl . '.status_id=status.id
+				-- LEFT JOIN beneficiario_calc ON ' . $tbl . '.cedula=beneficiario_calc.cedula
+				LEFT JOIN status ON ' . $tbl . '.status_id=status.id
 			WHERE
 				beneficiario.cedula=\'' . $cedula . '\'';
 

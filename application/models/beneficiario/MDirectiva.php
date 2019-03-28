@@ -70,16 +70,21 @@ class MDirectiva extends CI_Model{
   *
   * @param int
   */
-  public function iniciar(){
+  public function iniciar($id = ''){
     //$fecha = date("Y-m-d");
-    $fecha = '2016-08-01';
+    
+    $fecha = '2019-01-01';
+    $where = 'f_inicio < \'' . $fecha . '\'  AND f_vigencia > \'' . $fecha . '\'';
+    if($id != ''){
+      $where = 'directiva_sueldo.id=' . $id;
+    }
     $lst = array();
     $sConsulta = 'SELECT
         A.id, A.nombre, A.numero, A.f_vigencia,
         A.f_inicio, udad_tributaria, detalle_directiva.grado_id,
         detalle_directiva.anio, detalle_directiva.sueldo_base
         FROM (SELECT * FROM directiva_sueldo
-          WHERE f_inicio < \'' . $fecha . '\'  AND f_vigencia > \'' . $fecha . '\' ORDER BY f_inicio desc LIMIT 1) AS A
+          WHERE ' . $where . ' ORDER BY f_inicio desc LIMIT 1) AS A
       JOIN
         detalle_directiva ON A.id=detalle_directiva.directiva_sueldo_id
       ORDER BY grado_id, anio;';
@@ -144,7 +149,7 @@ class MDirectiva extends CI_Model{
     //echo $codigo_grado;
     //echo $Beneficiario->fecha_retiro . ' Retiro';
 
-    $fecha = $Beneficiario->fecha_retiro == '' ? date("Y-m-d") : $Beneficiario->fecha_retiro;
+    $fecha = date("Y-m-d"); //$Beneficiario->fecha_retiro == '' ? date("Y-m-d") : $Beneficiario->fecha_retiro;
 
     //echo "<br><br>";// . $no_ascenso . ' ' . $antiguedad_grado . ' G: ' . $codigo_grado . "<br><br>";
 
@@ -243,24 +248,66 @@ class MDirectiva extends CI_Model{
 
 
 
-  public function listarTodo($id){
-    $sConsulta = 'SELECT dd.id, ds.nombre, ds.numero, ds.f_vigencia, ds.udad_tributaria,
-      ds.f_inicio, ds.f_creacion,
-      gr.descripcion,dd.grado_id,dd.sueldo_base,dd.anio
-      FROM directiva_sueldo ds
-      JOIN detalle_directiva dd ON ds.id=dd.directiva_sueldo_id
-      JOIN grado_codigo gr ON gr.codigo=dd.grado_id
-      WHERE ds.id=' . $id . ' ORDER BY dd.grado_id,dd.anio' ;
+  public function listarTodo($id = '', $fecha = ''){
+      $this->load->model('kernel/KPrimas');
+      $this->load->model('kernel/KFunciones');
+      $this->load->model('kernel/KConceptos');   
+      
+      $donde = $fecha != ''? 'f_inicio < \'' . $fecha . '\' AND f_vigencia > \'' . $fecha . '\'': 'directiva_sueldo.id=' . $id ;
+  
+      $lst = array();
+      $sConsulta = '
+        SELECT A.id, A.nombre, A.numero, A.f_vigencia, A.f_inicio,
+        udad_tributaria, detalle_directiva.grado_id,
+              detalle_directiva.anio, detalle_directiva.sueldo_base,
+              gc.descripcion AS gnombre,
+              factor, detalle_directiva.id AS iddt,salario_minimo
+        FROM (SELECT * FROM directiva_sueldo
+          WHERE ' . $donde . ' ORDER BY f_inicio desc LIMIT 1)
+              AS A
+        JOIN
+          detalle_directiva ON A.id=detalle_directiva.directiva_sueldo_id
+        JOIN
+          grado_codigo AS gc ON detalle_directiva.grado_id=gc.codigo 
+        ORDER BY grado_id, anio DESC;';  
+      $obj = $this->DBSpace->consultar($sConsulta);
+      if($obj->code == 0 ){
+  
+        $this->fecha_inicio = $obj->rs[0]->f_inicio;
+        $this->fecha_vigencia = $obj->rs[0]->f_vigencia;
+        $this->unidad_tributaria = $obj->rs[0]->udad_tributaria;
+        $grado = $obj->rs[0]->grado_id;
+        $gnombre = $obj->rs[0]->gnombre;
+        $list = array(
+          'oid'=>$obj->rs[0]->id,
+          'salario' => $obj->rs[0]->salario_minimo,
+          'f_ini' => $obj->rs[0]->f_inicio,
+          'f_ven' => $obj->rs[0]->f_vigencia,
+          'ut' => $obj->rs[0]->udad_tributaria,
+          'fnx' => array(),
+          'fnxC' => array()
+        );  
+        $rs = $obj->rs;
+        foreach ($rs as $clv => $val) {  
+          $lst[] = array(
+            'cd' =>  $val->grado_id . $val->anio,
+            'an' => $val->anio,
+            'sb' => $val->sueldo_base,
+            'ft' => $val->factor,
+            'id' => $val->iddt,
+            'gr' => $val->gnombre
+          );
+        }
+        $list['sueldo'] = $lst;
+      }
 
-    $obj = $this->Dbpace->consultar($sConsulta);
-    $lst = array();
+      $this->KFunciones->CargarDos($list);
+      //$this->KPrimas->Cargar($list);
+      $this->KConceptos->Cargar($list);
 
-    if($obj->code == 0 ){
-      //foreach ($obj->rs as $clv => $val) {
-       $lst = $obj->rs;
-      //}
-    }
-    return $lst;
+      return $list;
+  
+    
   }
 
 
@@ -271,17 +318,19 @@ class MDirectiva extends CI_Model{
 
 
   public function crearDirectiva($obj){
+    $intID = $obj['id'] + 1;
     $sConsulta = 'INSERT INTO directiva_sueldo(
         id, nombre, numero, f_vigencia, udad_tributaria, observaciones,
         status_id, f_inicio, f_creacion, usr_creacion, f_ult_modificacion,
-        usr_modificacion, observ_ult_modificacion, tipo_directiva)
-      select nextval(\'directiva_sueldo_id_seq\'),\'' . $obj->nombre . '\' as nombre, \'' . $obj->observacion . '\' as numero, 
-      \'' . $obj->fecha_vigencia . '\' as f_vigencia, ' . $obj->unidad_tributaria . ',\'' . $obj->numero . '\' as observaciones,
-            status_id,\'' . $obj->fecha_inicio . '\' as f_inicio,Now(),\'' . $obj->usuario . '\', Now(),
-            \'' . $obj->usuario . '\',\'' . $obj->numero . '\' as observ_ult_modificacion, tipo_directiva
+        usr_modificacion, observ_ult_modificacion, tipo_directiva, salario_minimo)
+      select ' . $intID . ',\'' . $obj['nombre'] . '\' as nombre, \'' . $obj['numero'] . '\' as numero, 
+        \'' . $obj['fechavigencia'] . '\' as f_vigencia, ' . $obj['unidadtributaria'] . ',
+        \'' . $obj['observacion'] . '\' as observaciones,
+        status_id,\'' . $obj['fechainicio'] . '\' as f_inicio,Now(),\'' . $obj['usuario'] . '\', Now(),
+        \'' . $obj['usuario'] . '\',\'' . $obj['id'] . '\' as observ_ult_modificacion, tipo_directiva,
+          ' . $obj['salariominimo'] . '
       FROM directiva_sueldo
-      WHERE id=' . $obj->id . ' RETURNING id';
-
+      WHERE id=' . $obj['id'] . ' RETURNING id';
 
       $id = 0;
       $rs = $this->Dbpace->consultar($sConsulta);
@@ -291,26 +340,87 @@ class MDirectiva extends CI_Model{
          $id = $val->id;
         }
       }
+      $monto = 0;
+      if ($obj['porcentaje'] > 0){
+        $monto = 'sueldo_base  + ((sueldo_base * ' . $obj['porcentaje'] . ')/100)';
+      }else if($obj['salariominimo'] > 0){
+        $monto = ' factor * ' . $obj['salariominimo'];
+      }
        $sConsulta = '
               INSERT INTO detalle_directiva(
-                          id, directiva_sueldo_id, grado_id, sueldo_base, anio, status_id,
+                          directiva_sueldo_id, grado_id, sueldo_base, anio, status_id,
                           f_creacion, usr_creacion, f_ult_modificacion, usr_modificacion,
-                          observ_ult_modificacion)
-              select  nextval(\'detalle_directiva_id_seq\'),(select id from directiva_sueldo  order by  id DESC limit 1), grado_id,
-              sueldo_base  + ((sueldo_base * ' . $obj->porcentaje . ')/100), anio, status_id,
-                          Now() as f_creacion, \'' . $obj->usuario . '\', Now(), \'' . $obj->usuario . '\',
-                          \'' . $obj->numero . '\' as obser_ult_modificacion
+                          observ_ult_modificacion, factor)
+              select ' . $id . ', grado_id,
+              ' . $monto . ', anio, status_id,
+                          Now() as f_creacion, \'' . $obj['usuario'] . '\', Now(), \'' . $obj['usuario'] . '\',
+                          \'' . $obj['id'] . '\' as obser_ult_modificacion, factor
               from detalle_directiva
-              where directiva_sueldo_id=' . $obj->id;
+              where directiva_sueldo_id=' .  $obj['id'] . ' ORDER BY grado_id, anio DESC';
+      
+      $rs = $this->Dbpace->consultar($sConsulta);
+  
+
+      $sConsulta = 'UPDATE directiva_sueldo SET 
+        f_vigencia = \'' . substr($obj['fechavigencia'],0,10) . ' 00:00:00\'::TIMESTAMP - interval \'1 day\' 
+        WHERE id=' .  $obj['id'];
+      $query = $sConsulta;
+      $rs = $this->Dbpace->consultar($sConsulta);
+      
+
+      $sConsulta = '
+      INSERT INTO prima_directiva(
+        prima_id, grado_id,directiva_id,monto_nominal,monto_ut,
+        status_id,f_creacion,usr_creacion,f_ult_modificacion,
+        usr_modificacion,  observ_ult_modificacion)
+      select 
+        prima_id, grado_id,' . $id . ',monto_nominal,monto_ut,
+        status_id,f_creacion,Now(),f_ult_modificacion,
+        \'' . $obj['usuario'] . '\',\'' . $obj['observacion'] . '\'
+      from prima_directiva where directiva_id = ' .  $obj['id'];
 
       $rs = $this->Dbpace->consultar($sConsulta);
-      //echo "Proceso Exitoso";
+
+
+      $sConsulta = 'INSERT INTO space.fnprima (oid, oidd, func)
+      SELECT nextval(\'detalle_directiva_id_seq\'::regclass),' . $id . ',func 
+      FROM space.fnprima where oidd='  .  $obj['id'];
+      $rs = $this->Dbpace->consultar($sConsulta);
+
+      return $query;
   }
+
+
+  /**
+  * Eliminar directivas
+  *
+  * @var int
+  * @return rs
+  */
   function Eliminar($id){
-    $sConsulta = 'DELETE FROM detalle_directiva WHERE directiva_sueldo_id=' . $id . '; DELETE FROM directiva_sueldo WHERE id=' . $id;
-    //echo $sConsulta;
+    $sConsulta = 'select * from directiva_sueldo where id =70;
+    select * from detalle_directiva where directiva_sueldo_id =70;
+    select * from prima_directiva where directiva_id=70;
+    select * from space.fnprima where oidd=70;';
+
+    $sConsulta = '
+    DELETE FROM directiva_sueldo where id = ' . $id . ';
+    DELETE FROM detalle_directiva where directiva_sueldo_id = ' . $id . ';
+    DELETE FROM prima_directiva where directiva_id= ' . $id . ';
+    DELETE FROM space.fnprima where oidd= ' . $id;
+
     $rs = $this->Dbpace->consultar($sConsulta);
     return $rs;
   }
+    
+  function ActualizarDetalle($arr){
+    $cad = '';
+    foreach ($arr as $key => $v) {
+      $sConsulta = 'UPDATE detalle_directiva SET factor=' . $v['factor'] . ', sueldo_base =' . $v['monto'] . ' WHERE id =' . $v['id'];
+      $obj = $this->Dbpace->consultar($sConsulta);
+      $cad = $sConsulta; 
+    }
+    return $cad;
 
+  }
 }

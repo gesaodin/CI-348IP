@@ -96,7 +96,7 @@ class KDirectiva extends CI_Model{
         ORDER BY grado_id, anio;';
 
 
-
+    //echo ($sConsulta);
 
     $obj = $this->DBSpace->consultar($sConsulta);
     if($obj->code == 0 ){
