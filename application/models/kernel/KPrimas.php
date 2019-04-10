@@ -76,7 +76,7 @@ class KPrimas extends CI_Model{
   * @param int
   * @return array
   */
-  public function Cargar(&$Dir){
+  public function Cargar(& $Dir){
     $sConsulta = '
       SELECT prima_directiva.id, prima_directiva.prima_id, prima.nombre,
       prima.descripcion, monto_nominal, monto_ut,directiva_id AS oidd,
@@ -87,12 +87,12 @@ class KPrimas extends CI_Model{
       ORDER BY grado_id, prima_id ';
     //echo $sConsulta;
 	  $obj = $this->DBSpace->consultar($sConsulta);
-    $sb = &$Dir['XXXXXXXX'];
+    $sb = &$Dir['sb'];
 		$lstH = array();
 		$gra = 0;
 		$i = 0;
 		foreach ($obj->rs as $clv => $v) {
-		  	$sb[$v->grado_id . 'M']['mt'][$v->prima_id ] =$v->monto_nominal;
+      $sb[$v->grado_id . 'M']['mt'][$v->prima_id ] = $v->monto_nominal;
 		}
 		return $this;
 

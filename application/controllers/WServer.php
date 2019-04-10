@@ -209,13 +209,14 @@ class WServer extends REST_Controller{
         $data['fecha'] = $this->post("fecha");
 
         $this->KCargador->_MapWNomina = $this->post();
+        //print_r($this->KCargador->_MapWNomina);
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
         $segmento = array(
             'total' => number_format($this->KCargador->SSueldoBase, 2, ',','.'),
             'registros' => 3,
             'md5' => $firma,
             'paralizados' => 0,
-            'archivo' => 'http://localhost/CI-3.1.10/tmp/' . $firma . '.csv'
+            'archivo' => 'http://192.168.6.45/CI-3.1.10/tmp/' . $firma . '.csv'
         );        
         $this->response($segmento);
     }

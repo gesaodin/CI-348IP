@@ -148,7 +148,9 @@ class KCargador extends CI_Model{
           grado ON beneficiario.grado_id=grado.codigo AND beneficiario.componente_id= grado.componente_id
         WHERE 
         grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 4260, 8480, 5320) 
-        -- LIMIT 10
+        ORDER BY grado.codigo
+        -- AND grado.codigo IN( 10, 15)
+        -- LIMIT 2
         -- AND beneficiario.cedula='11738759'";
 
     $con = $this->DBSpace->consultar($sConsulta);
@@ -168,14 +170,14 @@ class KCargador extends CI_Model{
     $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
-    $linea = 'cedula;apellidos;nombres;componente;grado;tiempo_servicio;porcentaje';
+    $linea = 'cedula;apellidos;nombres;fecha_ingreso;fecha_ascenso;fecha_retiro;componente;grado;grado_descripcion;antiguedad;porcentaje;';
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
     for ($i= 0; $i < $cant; $i++){
       $rs = $map[$i]['codigo'];
       $linea .= $rs . ";";
     }
-   
+    $linea .= 'asignacion;deduccion';
     fputs($file,$linea);//Para Generar archivo csv 04102017
     fputs($file,"\n");//Para Generar archivo csv 04102017
     //print_r($Directivas);
@@ -186,9 +188,10 @@ class KCargador extends CI_Model{
       $linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
       
       //echo $linea;
-
-      fputs($file,$linea);
-      fputs($file,"\n");
+      if($linea != ""){
+        fputs($file,$linea);
+        fputs($file,"\n");
+      }
       //unset($Bnf);
 
     }
@@ -243,7 +246,7 @@ class KCargador extends CI_Model{
       $deduccion = 0;
       $neto = 0;
       
-
+      $linea = '';
       $patron = md5($v->fecha_ingreso.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
         $v->codigo.$v->f_ult_ascenso.$v->st_profesion.
         $v->anio_reconocido.$v->mes_reconocido.$v->dia_reconocido.$v->porcentaje);
@@ -251,26 +254,30 @@ class KCargador extends CI_Model{
       //GENERADOR DE CALCULOS DINAMICOS
       if(!isset($Perceptron->Neurona[$patron])){
         $CalculoLote->Ejecutar();
+        
         $segmentoincial = '';        
         $cant = count($this->_MapWNomina['Concepto']);
         $map = $this->_MapWNomina['Concepto'];
         
+        //Aplicar conceptos de Asignación
         for ($i= 0; $i < $cant; $i++){
           $rs = $map[$i]['codigo'];
           if (isset($Bnf->Concepto[$rs])) {
-            $segmentoincial .= $Bnf->Concepto[$rs]['mt'] . ";";
+            $segmentoincial .=  $Bnf->Concepto[$rs]['mt'] . ";";
             $asignacion += $Bnf->Concepto[$rs]['TIPO'] == 1? $Bnf->Concepto[$rs]['mt'] : 0;
             $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 0 ? $Bnf->Concepto[$rs]['mt']: 0;
             $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 2 ? $Bnf->Concepto[$rs]['mt']: 0;
           }
         }        
         
-        $segmentoincial .= ';' . $asignacion;
+        $segmentoincial .= $asignacion;
         $Perceptron->Aprender($patron, array(
           'RECUERDO' => $segmentoincial,
           'ASIGNACION' => $asignacion,
           'DEDUCCION' => $deduccion,
-          'SUELDOBASE' => $Bnf->sueldo_base
+          'SUELDOBASE' => $Bnf->sueldo_base,
+          'PENSION' => $Bnf->pension,
+          'PORCENTAJE' => $Bnf->porcentaje
           ) );
           
         //MEDIDA JUDICIAL INDIVIDUAL
@@ -278,14 +285,17 @@ class KCargador extends CI_Model{
           $MJ = $this->MedidaJudicial[$Bnf->cedula];
           $cantMJ = count($MJ);
           for($i = 0; $i < $cantMJ; $i++){
-            $deduccion += $this->KMedidaJudicial->Ejecutar($Bnf->sueldo_base, 1, $MJ[$i]['fnxm']);            
+            $deduccion += $this->KMedidaJudicial->Ejecutar($Bnf->sueldo_mensual, 1, $MJ[$i]['fnxm']);            
           }          
         }
         $neto = $asignacion - $deduccion;
-        $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-        ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado . 
-        ';' . $Bnf->porcentaje . ';' . $this->generarLinea($segmentoincial). ';' . $deduccion . ';'  . $neto;
-
+        if ($Bnf->sueldo_base > 0 && $Bnf->porcentaje > 0 ){
+          $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
+           ';' . $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
+          ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
+          ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado . 
+          ';' . $Bnf->porcentaje . ';' . $this->generarLinea($segmentoincial). ';' . $deduccion . ';'  . $neto;
+        }
       }else{
 
         $deduccion = $Perceptron->Neurona[$patron]["DEDUCCION"];
@@ -295,15 +305,18 @@ class KCargador extends CI_Model{
           $MJ = $this->MedidaJudicial[$Bnf->cedula];
           $cantMJ = count($MJ);
           for($i = 0; $i < $cantMJ; $i++){
-            $deduccion += $this->KMedidaJudicial->Ejecutar($Bnf->sueldo_base, 1, $MJ[$i]['fnxm']);            
+            $deduccion += $this->KMedidaJudicial->Ejecutar($Bnf->sueldo_mensual, 1, $MJ[$i]['fnxm']);            
           }          
         }
         $neto = $asignacion - $deduccion;
-
-        $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-        ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado .
-        ';' . $Bnf->porcentaje . ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
-        ';' . $deduccion . ';' . $neto;
+        if($Perceptron->Neurona[$patron]["SUELDOBASE"] > 0   && $Perceptron->Neurona[$patron]["PORCENTAJE"] > 0  ){
+          $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
+          ';' . $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
+          ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
+          ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado .
+          ';' . $Bnf->porcentaje . ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
+          ';' . $deduccion . ';' . $neto;
+        }
       }
 
 
@@ -942,5 +955,56 @@ class KCargador extends CI_Model{
       }
       return true;
 
-  }
+
+    }
+
+
+    function prof(){
+      $porc = 0;
+      switch ( $grado ) {
+        case 10:
+        case 15:
+          $porc =20;         
+          if( $porcentaje_profesionalizacion > $porc ) {
+            $porc = $porcentaje_profesionalizacion;
+          }
+          break;
+        case 20:
+        case 30:
+        case 1040:
+          $porc = 18;
+          if( $porcentaje_profesionalizacion > $porc ) {
+            $porc = $porcentaje_profesionalizacion;
+          };
+          break;
+        case 1050:
+        case 1060:
+          $porc = 16;
+          if( $porcentaje_profesionalizacion > $porc ) {
+            $porc = $porcentaje_profesionalizacion;
+          }
+          break;
+        case 2070:
+        case 2080:
+        case 2090:
+        case 6330:
+        case 6340:
+          $porc = 14;
+          if( $porcentaje_profesionalizacion > $porc ) {
+            $porc = $porcentaje_profesionalizacion;
+          }
+          break;
+        case 6350: 
+        case 6360:
+        case 6370:
+        case 6380:
+        case 6390:
+          $porc = 12;
+          if( $porcentaje_profesionalizacion > $porc ) {
+            $porc = $porcentaje_profesionalizacion;
+          }
+          break;
+      }      
+      $valor = ($sueldo_basico * $porc)/100;  
+    }
 }

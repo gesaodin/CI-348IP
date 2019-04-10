@@ -61,7 +61,7 @@ class KCalculoLote extends CI_Model{
     $sueldo = $this->Directiva['sb'];
 
     $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
-    $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
+    // $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 
       'ABV' =>  'SB', 
@@ -85,6 +85,7 @@ class KCalculoLote extends CI_Model{
 
     $valor = 0;
     $this->Beneficiario->monto_total_prima = 0;
+   
     $grado = $this->Beneficiario->grado_codigo;
     $componente = $this->Beneficiario->componente_id;
     $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
@@ -93,10 +94,11 @@ class KCalculoLote extends CI_Model{
     $sueldo_basico = $this->Beneficiario->sueldo_base;
     $sueldo_minimo = $this->Directiva['salario'];
     $unidad_tributaria = $this->Directiva['ut'];
-
+    $porcentaje_pension = $this->Beneficiario->porcentaje;
     $no_ascenso = $this->Beneficiario->no_ascenso;
     $numero_hijos = $this->Beneficiario->numero_hijos;
     $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;
+    $porcentaje_profesionalizacion = $this->Beneficiario->prima_profesionalizacion_mt; 
     
     //Establecer Primras
     foreach ($lst as $c => $v) {
@@ -114,6 +116,18 @@ class KCalculoLote extends CI_Model{
         'TIPO' => 1
       );
     }
+    //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
+    $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
+    $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
+    $this->Beneficiario->pension = $pension;
+    $this->Beneficiario->sueldo_mensual = $pension;
+    $sueldo_mensual = $this->Beneficiario->sueldo_mensual;
+
+    $this->Beneficiario->Concepto["sueldo_mensual"] = array(
+      'mt' => round($sueldo_mensual,2), 
+      'ABV' =>  "sueldo_mensual", 
+      'TIPO' => 1 
+    );
    //Formular Conceptos
     foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
       $fnx = $obj['fn'];
@@ -126,8 +140,9 @@ class KCalculoLote extends CI_Model{
       );
       $valor = 0;
     }
-
-
+    
+    
+    
   }
 
   function OperarConceptos(){
