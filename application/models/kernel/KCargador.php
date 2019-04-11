@@ -170,14 +170,14 @@ class KCargador extends CI_Model{
     $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
-    $linea = 'cedula;apellidos;nombres;fecha_ingreso;fecha_ascenso;fecha_retiro;componente;grado;grado_descripcion;antiguedad;porcentaje;';
+    $linea = 'cedula;apellidos;nombres;fecha_ingreso;fecha_ascenso;fecha_retiro;componente;grado;grado_descripcion;tiempo_servicio;antiguedad;porcentaje;';
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
     for ($i= 0; $i < $cant; $i++){
       $rs = $map[$i]['codigo'];
       $linea .= $rs . ";";
     }
-    $linea .= 'asignacion;deduccion';
+    $linea .= 'asignacion;deduccion;neto';
     fputs($file,$linea);//Para Generar archivo csv 04102017
     fputs($file,"\n");//Para Generar archivo csv 04102017
     //print_r($Directivas);
@@ -247,7 +247,7 @@ class KCargador extends CI_Model{
       $neto = 0;
       
       $linea = '';
-      $patron = md5($v->fecha_ingreso.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
+      $patron = md5($v->fecha_ingreso.$v->f_retiro.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
         $v->codigo.$v->f_ult_ascenso.$v->st_profesion.
         $v->anio_reconocido.$v->mes_reconocido.$v->dia_reconocido.$v->porcentaje);
 
@@ -267,10 +267,16 @@ class KCargador extends CI_Model{
             $asignacion += $Bnf->Concepto[$rs]['TIPO'] == 1? $Bnf->Concepto[$rs]['mt'] : 0;
             $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 0 ? $Bnf->Concepto[$rs]['mt']: 0;
             $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 2 ? $Bnf->Concepto[$rs]['mt']: 0;
+          }else{
+            $segmentoincial .= "0;";
           }
         }        
         
-        $segmentoincial .= $asignacion;
+        $segmentoincial = $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
+            ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
+            ';' . $Bnf->grado_nombre . ';' . $Bnf->tiempo_servicio . ';' . $Bnf->antiguedad_grado . 
+            ';' . $Bnf->porcentaje . ';' . $segmentoincial . $asignacion;
+
         $Perceptron->Aprender($patron, array(
           'RECUERDO' => $segmentoincial,
           'ASIGNACION' => $asignacion,
@@ -291,10 +297,7 @@ class KCargador extends CI_Model{
         $neto = $asignacion - $deduccion;
         if ($Bnf->sueldo_base > 0 && $Bnf->porcentaje > 0 ){
           $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-           ';' . $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
-          ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
-          ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado . 
-          ';' . $Bnf->porcentaje . ';' . $this->generarLinea($segmentoincial). ';' . $deduccion . ';'  . $neto;
+           ';' .  $this->generarLinea($segmentoincial). ';' . $deduccion . ';'  . $neto;
         }
       }else{
 
@@ -311,10 +314,7 @@ class KCargador extends CI_Model{
         $neto = $asignacion - $deduccion;
         if($Perceptron->Neurona[$patron]["SUELDOBASE"] > 0   && $Perceptron->Neurona[$patron]["PORCENTAJE"] > 0  ){
           $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-          ';' . $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
-          ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
-          ';' . $Bnf->grado_nombre . ';' . $Bnf->antiguedad_grado .
-          ';' . $Bnf->porcentaje . ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
+          ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
           ';' . $deduccion . ';' . $neto;
         }
       }

@@ -57,15 +57,19 @@ class KCalculoLote extends CI_Model{
     $this->TiempoServicios();
     
     $cod = $this->Beneficiario->grado_codigo . $this->Beneficiario->antiguedad_grado;
-    
     $sueldo = $this->Directiva['sb'];
-
+    
+    if($this->Beneficiario->antiguedad_grado < 0){
+      $cod = $this->Beneficiario->grado_codigo . "0";
+    }
+    
     $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
+
     // $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 
-      'ABV' =>  'SB', 
-      'TIPO' => 1
+      'ABV' =>  'sueldo_base', 
+      'TIPO' => 99
     );
     // echo ("<pre>");
     // print_r($this->Directiva);
@@ -113,7 +117,7 @@ class KCalculoLote extends CI_Model{
       $this->Beneficiario->Concepto[$rs] = array(
         'mt' => round($valor,2), 
         'ABV' =>  $rs, 
-        'TIPO' => 1
+        'TIPO' => 99
       );
     }
     //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
