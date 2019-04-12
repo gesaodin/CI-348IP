@@ -212,8 +212,10 @@ class WServer extends REST_Controller{
         //print_r($this->KCargador->_MapWNomina);
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
         $segmento = array(
-            'total' => number_format($this->KCargador->SSueldoBase, 2, ',','.'),
-            'registros' => 3,
+            'neto' => number_format($this->KCargador->Neto, 2, ',','.'),
+            'asignacion' => number_format($this->KCargador->Asignacion, 2, ',','.'),
+            'deduccion' => number_format($this->KCargador->Deduccion, 2, ',','.'),
+            'registros' => $this->KCargador->Cantidad,
             'md5' => $firma,
             'paralizados' => 0,
             'archivo' => 'http://192.168.6.45/CI-3.1.10/tmp/' . $firma . '.csv'

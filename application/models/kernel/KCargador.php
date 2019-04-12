@@ -59,6 +59,11 @@ class KCargador extends CI_Model{
   var $Deduccion = 0.00;
 
   /**
+  * @var double
+  */
+  var $Cantidad = 0;
+
+  /**
    * @var WNomina
    */
   var $_MapWNomina;
@@ -170,23 +175,24 @@ class KCargador extends CI_Model{
     $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
-    $linea = 'cedula;apellidos;nombres;fecha_ingreso;fecha_ascenso;fecha_retiro;componente;grado;grado_descripcion;tiempo_servicio;antiguedad;porcentaje;';
+    $linea = 'CEDULA;APELLIDOS;NOMBRES;FECHA INGRESO;FECHA ASCENSO;FECHA RETIRO;COMPONENTE;GRADO;GRADO DESC.;TIEMPO DE SERV.;ANTIGUEDAD;NUM. HIJOS;PORCENTAJE;';
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
     for ($i= 0; $i < $cant; $i++){
       $rs = $map[$i]['codigo'];
       $linea .= $rs . ";";
     }
-    $linea .= 'asignacion;deduccion;neto';
+    $linea .= 'ASIGNACION;DEDUCCION;NETO';
     fputs($file,$linea);//Para Generar archivo csv 04102017
     fputs($file,"\n");//Para Generar archivo csv 04102017
     //print_r($Directivas);
+
 
     foreach ($obj as $k => $v) {
       $Bnf = new $this->MBeneficiario;
       $this->KCalculoLote->Instanciar($Bnf, $Directivas);
       $linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
-      
+      $this->Cantidad++;
       //echo $linea;
       if($linea != ""){
         fputs($file,$linea);
@@ -195,7 +201,7 @@ class KCargador extends CI_Model{
       //unset($Bnf);
 
     }
-
+    
     //echo "Sueldo Base Total: " . $this->Neto;
 
 
@@ -275,7 +281,7 @@ class KCargador extends CI_Model{
         $segmentoincial = $Bnf->fecha_ingreso . ';' . $Bnf->fecha_ultimo_ascenso . 
             ';' . $Bnf->fecha_retiro . ';' . $Bnf->componente_nombre . ';' . $Bnf->grado_codigo . 
             ';' . $Bnf->grado_nombre . ';' . $Bnf->tiempo_servicio . ';' . $Bnf->antiguedad_grado . 
-            ';' . $Bnf->porcentaje . ';' . $segmentoincial . $asignacion;
+            ';' . $Bnf->numero_hijos . ';' . $Bnf->porcentaje . ';' . $segmentoincial . $asignacion;
 
         $Perceptron->Aprender($patron, array(
           'RECUERDO' => $segmentoincial,
@@ -321,6 +327,8 @@ class KCargador extends CI_Model{
 
 
       $this->SSueldoBase += $Bnf->sueldo_base;
+      $this->Asignacion += $asignacion;
+      $this->Deduccion += $deduccion;
       $this->Neto += $neto;
       // echo ("<pre>");
       // print_r(count($Perceptron->Neurona));
