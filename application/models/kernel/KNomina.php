@@ -25,8 +25,8 @@ class KNomina extends CI_Model{
   var $Asignacion = 0.00;
   var $Deduccion = 0.00;
   var $Cantidad = 0;
-  var $Tipo = ''; //RCP | FCP | I | GRACIA
-  var $estatus = true;
+  var $Tipo = 'SD'; //RCP | FCP | I | GRACIA
+  var $Estatus = 0;
   
   var $fecha = '';
   /**
@@ -37,20 +37,45 @@ class KNomina extends CI_Model{
   */
   public function __construct(){
     parent::__construct();  
-
+    if(!isset($this->DBSpace)) $this->load->model('comun/DBSpace');
   }
 
-  public function Cargar(){
-    
+  public function Cargar($info = ""){
+    $oid = 0;
+    $p = json_encode($info["Concepto"]);
+    $sConsulta = "INSERT INTO space.nomina ( nomb,obse,fech,desd,hast,tipo,mont,asig, dedu, cant, esta, info ) VALUES (
+    '" . $this->Nombre . "','" . $info["nombre"] . "',Now(),'" . $info["fechainicio"] . "','" . $info["fechafin"] . 
+    "','" .  $info["tipo"] . 
+    "'," . $this->Monto . "," . $this->Asignacion . "," . $this->Deduccion . 
+    "," . $this->Cantidad  . "," . $this->Estatus  . ",'"  . $p . "') RETURNING oid";
 
-    $sConsulta = "INSERT INTO space.nomina ( nomb,obse, fech,tipo,m onto,asig, dedu, cant, estatus ) VALUE (
-    '" . $this->Nombre . "','" . $this->Descripcion . "',Now(),'" . $this->Tipo . 
-    "','" . $this->Monto . "''" . $this->Asignacion . "','" . $this->Deduccion . "','" . $this->Cantidad  . ",1) RETURNING oid";
-    $obj = $this->DBSaman->consultar($sConsulta);
-
-    return json_encode($obj->rs);
+    $obj = $this->DBSpace->consultar($sConsulta);
+    foreach ($obj->rs as $clv => $val) {
+        $oid = $val->oid;
+    }
+    $this->ID = $oid;
   }
 
+  public function Actualizar(){
+    $sConsulta = "UPDATE space.nomina SET nomb = '" .  $this->Nombre . "', esta = " . $this->Estatus . ", tipo='" . $this->Tipo .  
+    "', mont = " . $this->Monto . ", asig =" . $this->Asignacion . 
+    ", dedu=" . $this->Deduccion . ", cant=" . $this->Cantidad  . " WHERE oid =" . $this->ID;
+    $obj = $this->DBSpace->consultar($sConsulta);
+    //echo "AQUI";
+    return true;
+  }
+
+  public function Contar(){
+    $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario GROUP BY situacion";
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $contar = array();
+    foreach($obj->rs as $c => $v ){
+      $contar[] = array(
+              "situacion" => $v->situacion, 
+              "cantidad" => $v->cantidad);
+    }
+    return $contar;
+  }
 
   
 }

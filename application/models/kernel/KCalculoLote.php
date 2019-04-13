@@ -65,6 +65,7 @@ class KCalculoLote extends CI_Model{
     
     $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
 
+
     // $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 

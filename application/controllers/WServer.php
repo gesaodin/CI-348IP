@@ -206,9 +206,10 @@ class WServer extends REST_Controller{
         $firma = md5($fecha);
         $this->load->model('kernel/KCargador');
         $data['id'] = $this->post("id"); //Directiva
-        $data['fecha'] = $this->post("fecha");
+        $data['fecha'] = $this->post("fechainicio");
 
         $this->KCargador->_MapWNomina = $this->post();
+
         //print_r($this->KCargador->_MapWNomina);
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
         $segmento = array(
@@ -218,7 +219,11 @@ class WServer extends REST_Controller{
             'registros' => $this->KCargador->Cantidad,
             'md5' => $firma,
             'paralizados' => 0,
-            'archivo' => 'http://192.168.6.45/CI-3.1.10/tmp/' . $firma . '.csv'
+            'desde' => $this->post("fechainicio"),
+            'hasta' => $this->post("fechafin"),
+            'archivo' => 'http://192.168.6.45/CI-3.1.10/tmp/' . $firma . '.csv',
+            'oid' => $this->KCargador->OidNomina,
+            'nombre' => $this->post("nombre")
         );        
         $this->response($segmento);
     }
@@ -277,6 +282,11 @@ class WServer extends REST_Controller{
         $this->response($segmento);
 	}
 
+    function ccpensionados_get(){
+        $this->load->model('kernel/KNomina');
+		$Contar = $this->KNomina->Contar();
+		$this->response($Contar);
+    }
 
 }
 	

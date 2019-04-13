@@ -18,6 +18,11 @@ if (!defined('BASEPATH'))
 class KCargador extends CI_Model{
 
   /**
+  * @var Nomina
+  */
+  var $OidNomina = 0;
+
+  /**
   * @var MBeneficiario
   */
   var $Beneficiario = null;
@@ -57,6 +62,7 @@ class KCargador extends CI_Model{
   * @var double
   */
   var $Deduccion = 0.00;
+  
 
   /**
   * @var double
@@ -136,6 +142,7 @@ class KCargador extends CI_Model{
 
     $this->load->model('comun/Dbpace');
     $this->load->model('kernel/KSensor');
+    
     $this->load->model('fisico/MBeneficiario');
     $this->load->model('kernel/KMedidaJudicial');
     $this->MedidaJudicial = $this->KMedidaJudicial->Cargar();
@@ -155,11 +162,12 @@ class KCargador extends CI_Model{
         grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 4260, 8480, 5320) 
         ORDER BY grado.codigo
         -- AND grado.codigo IN( 10, 15)
-        -- LIMIT 2
+        LIMIT 2
         -- AND beneficiario.cedula='11738759'";
 
     $con = $this->DBSpace->consultar($sConsulta);
-
+    
+    
     //echo $sConsulta;
     //print_r($arr);
     $this->asignarBeneficiario($con->rs, $arr['id'], $arr['fecha'], $archivo, $autor);
@@ -171,10 +179,15 @@ class KCargador extends CI_Model{
 
     $this->load->model('kernel/KCalculoLote');
     $this->load->model('kernel/KDirectiva');
+    $this->load->model('kernel/KNomina');
     $Directivas = $this->KDirectiva->Cargar($id); //Directivas
     $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
+    $this->KNomina->Cargar( $this->_MapWNomina );
+
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
+    $file_sqlCVS = fopen("tmp/" . $archivo . "-SQL.csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
+    $sqlCVS = "NOMINA;DIRECTIVA;CEDULA;NOMBRE;CALCULO;FECHA;BANCO;NUMERO;TIPO;SITUACION;ESTATUS;USUARIO;NETO";
     $linea = 'CEDULA;APELLIDOS;NOMBRES;FECHA INGRESO;FECHA ASCENSO;FECHA RETIRO;COMPONENTE;GRADO;GRADO DESC.;TIEMPO DE SERV.;ANTIGUEDAD;NUM. HIJOS;PORCENTAJE;';
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
@@ -184,26 +197,36 @@ class KCargador extends CI_Model{
     }
     $linea .= 'ASIGNACION;DEDUCCION;NETO';
     fputs($file,$linea);//Para Generar archivo csv 04102017
-    fputs($file,"\n");//Para Generar archivo csv 04102017
-    //print_r($Directivas);
+    fputs($file,"\n");//Salto de linea
 
+    fputs($file_sqlCVS,$sqlCVS);//Para Generar archivo csv 04102017
+    fputs($file_sqlCVS,"\n");//Salto de linea
+
+    //print_r($Directivas);
 
     foreach ($obj as $k => $v) {
       $Bnf = new $this->MBeneficiario;
       $this->KCalculoLote->Instanciar($Bnf, $Directivas);
-      $linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
+      $linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v, $this->KNomina->ID);
       $this->Cantidad++;
-      //echo $linea;
-      if($linea != ""){
-        fputs($file,$linea);
+      if($linea["xls"] != ""){
+        fputs($file,$linea["xls"]);
         fputs($file,"\n");
+        /** INSERT PARA POSTGRES CIERRE DE LA NOMINA  */
+        fputs($file_sqlCVS,$linea["csv"]);
+        fputs($file_sqlCVS,"\n");
       }
-      //unset($Bnf);
-
     }
     
     //echo "Sueldo Base Total: " . $this->Neto;
-
+    $this->OidNomina = $this->KNomina->ID;
+    $this->KNomina->Nombre = $archivo;
+    $this->KNomina->Monto = $this->Neto;
+    $this->KNomina->Asignacion = $this->Asignacion;
+    $this->KNomina->Tipo = 'RCP';
+    $this->KNomina->Estatus = 1;
+    $this->KNomina->Deduccion = $this->Deduccion;
+    $this->KNomina->Actualizar();
 
     fclose($file);//Para Generar archivo csv 04102017
     return true;
@@ -218,7 +241,7 @@ class KCargador extends CI_Model{
   * @param object
   * @return void
   */
-  private function generarConPatrones(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $v){
+  private function generarConPatrones(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $v, $sqlID){
       $Bnf->cedula = $v->cedula;
       $Bnf->deposito_banco = ""; //$v->cap_banco; //Individual de la Red
       $Bnf->anticipo = ""; // $v->anticipo; //Anticipos
@@ -253,6 +276,7 @@ class KCargador extends CI_Model{
       $neto = 0;
       
       $linea = '';
+      $registro = '';
       $patron = md5($v->fecha_ingreso.$v->f_retiro.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
         $v->codigo.$v->f_ult_ascenso.$v->st_profesion.
         $v->anio_reconocido.$v->mes_reconocido.$v->dia_reconocido.$v->porcentaje);
@@ -260,7 +284,8 @@ class KCargador extends CI_Model{
       //GENERADOR DE CALCULOS DINAMICOS
       if(!isset($Perceptron->Neurona[$patron])){
         $CalculoLote->Ejecutar();
-        
+        //print_r($Bnf);
+
         $segmentoincial = '';        
         $cant = count($this->_MapWNomina['Concepto']);
         $map = $this->_MapWNomina['Concepto'];
@@ -289,7 +314,8 @@ class KCargador extends CI_Model{
           'DEDUCCION' => $deduccion,
           'SUELDOBASE' => $Bnf->sueldo_base,
           'PENSION' => $Bnf->pension,
-          'PORCENTAJE' => $Bnf->porcentaje
+          'PORCENTAJE' => $Bnf->porcentaje,
+          'CONCEPTO' => $Bnf->Concepto
           ) );
           
         //MEDIDA JUDICIAL INDIVIDUAL
@@ -305,6 +331,9 @@ class KCargador extends CI_Model{
           $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
            ';' .  $this->generarLinea($segmentoincial). ';' . $deduccion . ';'  . $neto;
         }
+
+        
+        $registro = $sqlID . ";" . $Directivas['oid'] . ";" . $Bnf->cedula . ';"' . json_encode($Bnf->Concepto) . '";' ;
       }else{
 
         $deduccion = $Perceptron->Neurona[$patron]["DEDUCCION"];
@@ -323,6 +352,8 @@ class KCargador extends CI_Model{
           ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
           ';' . $deduccion . ';' . $neto;
         }
+        $NConcepto = $Perceptron->Neurona[$patron]["CONCEPTO"];
+        $registro =  $sqlID . ";" . $Directivas['oid'] . ";" .  $Bnf->cedula . ';"' . json_encode($NConcepto) . '";' ;
       }
 
 
@@ -332,7 +363,9 @@ class KCargador extends CI_Model{
       $this->Neto += $neto;
       // echo ("<pre>");
       // print_r(count($Perceptron->Neurona));
-      return $linea;
+      $obj["xls"] = $linea;
+      $obj["csv"] = $registro;
+      return $obj;
 
   }
 
