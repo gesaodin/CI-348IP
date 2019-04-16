@@ -240,7 +240,10 @@ class KCargador extends CI_Model{
         }
         $lineaSQL = $coma . $linea["sql"]; 
         fputs( $file_sqlCVS, $lineaSQL);
+
         
+        fputs($file_log, $linea["log"]);
+        fputs($file_log, "\n");
       }
     }
     
@@ -337,12 +340,13 @@ class KCargador extends CI_Model{
             
             if( $Bnf->Concepto[$rs]['TIPO'] == 99 ){
               $medida_str = $medida[0] . ";";
-              $deduccion +=  $medida; 
-                         
+              $deduccion +=  $medida[0]; 
+              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);          
             }else if ( $Bnf->Concepto[$rs]['TIPO'] == 98 ){
               $cajaahorro_str = $cajaahorro . ";";
               $deduccion +=  $cajaahorro;
               $abreviatura = $Bnf->Concepto[$rs]['ABV'];
+              $recibo_de_pago[] = array('desc' =>  $abreviatura, 'tipo' => 98,'mont' => $cajaahorro);          
             }else{
               $segmentoincial .=  $Bnf->Concepto[$rs]['mt'] . ";";
               $asignacion += $Bnf->Concepto[$rs]['TIPO'] == 1? $Bnf->Concepto[$rs]['mt'] : 0;
@@ -391,7 +395,7 @@ class KCargador extends CI_Model{
         
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
-        json_encode($Bnf->Concepto) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
+        json_encode($recibo_de_pago) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "','" . $Bnf->situacion . "',201,'SSSIFANB'," . $neto . ")";
       }else{        
         $medida = $this->calcularMedidaJudicial($this->KMedidaJudicial,  $Bnf);
@@ -405,12 +409,14 @@ class KCargador extends CI_Model{
           $result = $map[$i]['codigo'];
           if (isset($NConcepto[$result])) {                    
             if( $NConcepto[$result]['TIPO'] == 99 ){
-              $medida_str = $medida . ";";
-              $deduccion +=  $medida;             
+              $medida_str = $medida[0] . ";";
+              $deduccion +=  $medida[0];
+              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);             
             }else if ( $NConcepto[$result]['TIPO'] == 98 ){
               $cajaahorro_str = $cajaahorro . ";";
               $deduccion +=  $cajaahorro;
               $abreviatura = $NConcepto[$result]['ABV'];
+              $recibo_de_pago[] = array('desc' =>  $abreviatura, 'tipo' => 98,'mont' => $cajaahorro);
             }
           }
         }        
@@ -427,7 +433,7 @@ class KCargador extends CI_Model{
 
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
-        json_encode($NConcepto) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
+        json_encode($recibo_de_pago) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', 201, 'SSSIFANB'," . $neto . ")";
         
       }
@@ -449,15 +455,24 @@ class KCargador extends CI_Model{
   //MEDIDA JUDICIAL INDIVIDUAL
   private function calcularMedidaJudicial( KMedidaJudicial &$KMedida, MBeneficiario &$Bnf ){
     $monto = 0;
+    $nombre = "";
+    $cuenta = "";
+    $autorizado = "";
+    $cedula = "";
     if(isset($this->MedidaJudicial[$Bnf->cedula])){          
       $MJ = $this->MedidaJudicial[$Bnf->cedula];
       
       $cantMJ = count($MJ);
       for($i = 0; $i < $cantMJ; $i++){
-        $monto += $KMedida->Ejecutar($Bnf->pension, 1, $MJ[$i]['fnxm']);            
-      }          
+        $monto += $KMedida->Ejecutar($Bnf->pension, 1, $MJ[$i]['fnxm']);
+        $nombre = $MJ[$i]['nomb'];
+        $cuenta = $MJ[$i]['ncue'];
+        $autorizado = $MJ[$i]['auto'];
+        $cedula = $MJ[$i]['caut'];            
+      }   
+      
     }
-    return $monto;
+    return [ $monto, $nombre, $cuenta, $autorizado, $cedula];
   }
 
   private function obtenerCajaAhorro( MBeneficiario &$Bnf ){
