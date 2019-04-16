@@ -23,6 +23,7 @@ class WServer extends REST_Controller{
     
     public function __construct(){
         parent::__construct();
+        $this->load->helper('url'); 
         
     }
 
@@ -221,9 +222,11 @@ class WServer extends REST_Controller{
             'paralizados' => 0,
             'desde' => $this->post("fechainicio"),
             'hasta' => $this->post("fechafin"),
-            'archivo' => 'http://192.168.6.45/CI-3.1.10/tmp/' . $firma . '.csv',
+            'archivo' => 'tmp/' . $firma . '.csv',
             'oid' => $this->KCargador->OidNomina,
-            'nombre' => $this->post("nombre")
+            'tipo' => $this->post("tipo"),
+            'nombre' => $this->post("nombre"),
+            'url' => base_url()
         );        
         $this->response($segmento);
     }
@@ -288,5 +291,10 @@ class WServer extends REST_Controller{
 		$this->response($Contar);
     }
 
+    function listartpendientes_get(){
+        $this->load->model('kernel/KNomina');
+		$lst = $this->KNomina->Listar();
+		$this->response($lst);
+    }
 }
 	

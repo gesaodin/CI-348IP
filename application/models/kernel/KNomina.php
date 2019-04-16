@@ -43,11 +43,11 @@ class KNomina extends CI_Model{
   public function Cargar($info = ""){
     $oid = 0;
     $p = json_encode($info["Concepto"]);
-    $sConsulta = "INSERT INTO space.nomina ( nomb,obse,fech,desd,hast,tipo,mont,asig, dedu, cant, esta, info ) VALUES (
+    $sConsulta = "INSERT INTO space.nomina ( nomb,obse,fech,desd,hast,tipo,mont,asig, dedu, cant, esta, info, url ) VALUES (
     '" . $this->Nombre . "','" . $info["nombre"] . "',Now(),'" . $info["fechainicio"] . "','" . $info["fechafin"] . 
     "','" .  $info["tipo"] . 
     "'," . $this->Monto . "," . $this->Asignacion . "," . $this->Deduccion . 
-    "," . $this->Cantidad  . "," . $this->Estatus  . ",'"  . $p . "') RETURNING oid";
+    "," . $this->Cantidad  . "," . $this->Estatus  . ",'"  . $p . "','"  . base_url() . "') RETURNING oid";
 
     $obj = $this->DBSpace->consultar($sConsulta);
     foreach ($obj->rs as $clv => $val) {
@@ -75,6 +75,16 @@ class KNomina extends CI_Model{
               "cantidad" => $v->cantidad);
     }
     return $contar;
+  }
+
+  public function Listar(){
+    $sConsulta = "SELECT * FROM space.nomina WHERE esta=1";
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $lst = array();
+    foreach($obj->rs as $c => $v ){
+      $lst[] = $v;
+    }
+    return $lst;
   }
 
   

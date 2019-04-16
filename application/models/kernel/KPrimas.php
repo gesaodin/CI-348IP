@@ -111,7 +111,7 @@ class KPrimas extends CI_Model{
     $this->Beneficiario = $Beneficiario;
     $this->unidad_tributaria =  $this->Beneficiario->Componente->Grado->Directiva->unidad_tributaria;
 
-    $sConsulta = 'SELECT prima.id, prima_id,nombre,descripcion,monto_nominal,monto_ut,fnx,rs FROM
+    $sConsulta = 'SELECT prima.id, prima_id,nombre,descripcion,monto_nominal,monto_ut,fnx,rs,part,cuen,estr FROM
     (
       SELECT prima_directiva.id, prima_directiva.prima_id, prima.nombre,
       prima.descripcion, monto_nominal, monto_ut,directiva_id AS oidd
@@ -121,10 +121,10 @@ class KPrimas extends CI_Model{
     ) AS prima
     JOIN
     (
-      SELECT oidd, refe,fnx,rs FROM space.fnprima AS fn
+      SELECT oidd, refe,fnx,rs,part,cuen,estr FROM space.fnprima AS fn
       JOIN space.fnformula AS fx ON fn.func=fx.oid
     ) fn ON prima.oidd=fn.oidd AND prima.prima_id=fn.refe;';
-
+      
     $obj = $this->DBSpace->consultar($sConsulta);
     $listaPrima = array();
 		if($obj->code == 0 ){

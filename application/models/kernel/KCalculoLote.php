@@ -70,7 +70,7 @@ class KCalculoLote extends CI_Model{
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 
       'ABV' =>  'sueldo_base', 
-      'TIPO' => 99
+      'TIPO' => 97
     );
     // echo ("<pre>");
     // print_r($this->Directiva);
@@ -90,7 +90,7 @@ class KCalculoLote extends CI_Model{
 
     $valor = 0;
     $this->Beneficiario->monto_total_prima = 0;
-   
+    $automatico = 0;
     $grado = $this->Beneficiario->grado_codigo;
     $componente = $this->Beneficiario->componente_id;
     $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
@@ -118,7 +118,7 @@ class KCalculoLote extends CI_Model{
       $this->Beneficiario->Concepto[$rs] = array(
         'mt' => round($valor,2), 
         'ABV' =>  $rs, 
-        'TIPO' => 99
+        'TIPO' => 97
       );
     }
     //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
@@ -126,7 +126,7 @@ class KCalculoLote extends CI_Model{
     $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
     $this->Beneficiario->pension = $pension;
     $this->Beneficiario->sueldo_mensual = $pension;
-    $sueldo_mensual = $this->Beneficiario->sueldo_mensual;
+    $sueldo_mensual = $pension;
 
     $this->Beneficiario->Concepto["sueldo_mensual"] = array(
       'mt' => round($sueldo_mensual,2), 

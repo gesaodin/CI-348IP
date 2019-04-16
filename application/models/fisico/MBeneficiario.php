@@ -50,7 +50,24 @@ class MBeneficiario extends CI_Model{
 	/**
 	* @var string
 	*/
+	var $situacion = '';
+
+	/**
+	* @var string
+	*/
+	var $banco = '';
+
+	/**
+	* @var string
+	*/
+	var $tipo = '';
+
+	/**
+	* @var string
+	*/
 	var $numero_cuenta = '';
+
+
 
 	/**
 	* @var date
@@ -793,185 +810,4 @@ class MBeneficiario extends CI_Model{
 
 
 
-
-	function InsertarHistorial(){
-		$sInsertar = 'INSERT INTO hist_beneficiario (
-			status_id,
-			componente_id,
-			grado_id,
-			cedula,
-			nombres,
-			apellidos,
-			tiempo_servicio,
-			fecha_ingreso,
-			edo_civil,
-			n_hijos,
-			f_ult_ascenso,
-			anio_reconocido,
-			mes_reconocido,
-			dia_reconocido,
-			f_ingreso_sistema,
-			f_retiro,
-			f_retiro_efectiva,
-			st_no_ascenso,
-			numero_cuenta,
-			st_profesion,
-			sexo,
-			f_creacion,
-			usr_creacion,
-			f_ult_modificacion,
-			usr_modificacion,
-			observ_ult_modificacion,
-			motivo_paralizacion,
-			f_reincorporacion
-		) VALUES ';
-
-		$sInsertar .= '(
-			\'' . $this->estatus_activo . '\',
-			\'' . $this->Componente->id . '\',
-			\'' . $this->Componente->Grado->id . '\',
-			\'' . $this->cedula . '\',
-			\'' . $this->nombres . '\',
-			\'' . $this->apellidos . '\',
-			\'' . $this->tiempo_servicio_db . '\',
-			\'' . $this->fecha_ingreso . '\',
-			\'' . $this->estado_civil . '\',
-			\'' . $this->numero_hijos . '\',
-			\'' . $this->fecha_ultimo_ascenso . '\',
-			\'' . $this->ano_reconocido . '\',
-			\'' . $this->mes_reconocido . '\',
-			\'' . $this->dia_reconocido . '\',
-			\'' . $this->fecha_ingreso_sistema . '\',
-			\'' . $this->fecha_retiro . '\',
-			\'' . $this->fecha_retiro_efectiva . '\',
-			\'' . $this->no_ascenso . '\',
-			\'' . $this->numero_cuenta . '\',
-			\'' . $this->profesionalizacion . '\',
-			\'' . $this->sexo . '\',
-			\'' . $this->fecha_creacion . '\',
-			\'' . $this->usuario_creador . '\',
-			\'' . $this->fecha_ultima_modificacion . '\',
-			\'' . $this->usuario_modificacion . '\',
-			\'' . $this->observacion . '\',
-			\'' . $this->motivo_paralizacion . '\',
-			\'' . $this->fecha_reincorporacion . '\'
-		)';
-		//echo $sInsertar;
-
-		$obj = $this->DBSpace->consultar($sInsertar);
-
-
-	}
-
-	public function insertarDetalle($familia, $codigo = ''){
-
-
-		$sInsertar = '';
-		$sInsertar_a = 'INSERT INTO space.mov_familia (
-			cedu,
-			cedf, --Cedula del familiar beneficiado
-  			nomb, --Cedula del familiar beneficiado
-  			pocb, -- Porcentaje
-  			cban, -- Capital en Banco
-			mdaa, -- Monto por diferencia de Asignacion de Antiguedad
-  			cmue, -- Monto causa o muerte
-  			pasfs, -- Porcentaje Acto de Servicio / Fuera de Servicio
-  			masfs, -- Monto Acto de Servicio / Fuera de Servicio
-  			usur,
-  			esta, -- Estus del proceso 1:Activo 0:Reversado
-  			posi, --
-  			fech, --
-  			codi --
-		) VALUES ';
-		foreach ($familia->fami as $c => $v) {
-
-
-
-			$sInsertar .= $sInsertar_a . '(
-				\'' . $familia->i_d . '\',
-				\'' . $v->ced . '\',
-				\'' . $v->nom . '\',
-				\'' . $v->pcb . '\',
-				\'' . $v->cab . '\',
-				\'' . $v->maa . '\',
-				\'' . $v->cmu . '\',
-				\'' . $v->pac . '\',
-				\'' . $v->mcm . '\',
-				\'' . $familia->u_s . '\',
-				1,
-				' . $c . ',
-				\''  .  date("Y-m-d H:i:s") . '\',
-				\'' . $codigo . '\'
-			);';
-
-		}
-
-		//echo $sInsertar;
-		$obj = $this->DBSpace->consultar($sInsertar);
-
-	}
-
-	public function consultarHistorial($id = ''){
-		$lst = array();
-		$obj = $this->_consultar($id, 'hist_beneficiario');
-		$i = 0;
-
-		foreach ($obj->rs as $clv => $val) {
-			$Beneficiario = new $this->MBeneficiario();
-			$Beneficiario->cedula = $val->cedula;
-			$Beneficiario->nombres = $val->nombres;
-			$Beneficiario->apellidos = $val->apellidos;
-			$Beneficiario->estado_civil = $val->edo_civil;
-			$Beneficiario->estatus_activo = $val->status_id;
-			$Beneficiario->estatus_descripcion = $val->estatus_descripcion;
-			$Beneficiario->numero_hijos = $val->n_hijos;
-
-			$Beneficiario->tiempo_servicio_db = $val->tiempo_servicio;
-			$Beneficiario->fecha_ingreso = $val->fecha_ingreso;
-			$Beneficiario->fecha_ingreso_sistema = $val->f_ingreso_sistema;
-
-			$Beneficiario->ano_reconocido = $val->anio_reconocido;
-			$Beneficiario->mes_reconocido = $val->mes_reconocido;
-			$Beneficiario->dia_reconocido = $val->dia_reconocido;
-			$Beneficiario->sexo = $val->sexo;
-			$Beneficiario->usuario_creador = $val->usr_creacion;
-
-			$Beneficiario->usuario_modificacion = $val->usr_modificacion;
-
-			$Beneficiario->fecha_ultima_modificacion = $val->f_ult_modificacion;
-			$Beneficiario->fecha_creacion = $val->f_creacion;
-
-			$Beneficiario->fecha_ultimo_ascenso = $val->f_ult_ascenso;
-
-			$Beneficiario->no_ascenso = $val->st_no_ascenso;
-			$Beneficiario->profesionalizacion = $val->st_profesion;
-			$Beneficiario->fecha_retiro = $val->f_retiro;
-			$Beneficiario->fecha_retiro_efectiva = $val->f_retiro_efectiva;
-			$Beneficiario->numero_cuenta = $val->numero_cuenta;
-			$Beneficiario->motivo_paralizacion = $val->motivo_paralizacion;
-			$Beneficiario->fecha_reincorporacion = $val->f_reincorporacion;
-			$Beneficiario->observacion = $val->observ_ult_modificacion;
-			$lst[] = $Beneficiario;
-			$i++;
-		}
-		return $lst;
-	}
-
-	function detalleMovimientoFamiliar($ced = '', $cod){
-		$lst = array();
-		$sConsulta = 'SELECT * FROM space.mov_familia where cedu=\'' . $ced . '\' AND codi =\'' . $cod . '\'';
-		$obj = $this->DBSpace->consultar($sConsulta);
-		foreach ($obj->rs as $clv => $val) {
-			$lst[] = array(
-				'codigo' => $val->posi,
-				'nombre' => $val->nomb,
-				'cedula' => $val->cedf,
-				'monto' => $val->cban,
-				'masfs' => $val->masfs,
-				'mdaa' => $val->mdaa,
-				'cmue' => $val->cmue
-			);
-		}
-		return $lst;
-	}
 }
