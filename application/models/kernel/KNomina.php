@@ -58,8 +58,8 @@ class KNomina extends CI_Model{
 
   public function Actualizar(){
     $sConsulta = "UPDATE space.nomina SET nomb = '" .  $this->Nombre . "', esta = " . $this->Estatus . ", tipo='" . $this->Tipo .  
-    "', mont = " . $this->Monto . ", asig =" . $this->Asignacion . 
-    ", dedu=" . $this->Deduccion . ", cant=" . $this->Cantidad  . " WHERE oid =" . $this->ID;
+    "', mont = " . round($this->Monto,2) . ", asig =" . round($this->Asignacion,2) . 
+    ", dedu=" . round($this->Deduccion,2) . ", cant=" . $this->Cantidad  . " WHERE oid =" . $this->ID;
     $obj = $this->DBSpace->consultar($sConsulta);
     //echo "AQUI";
     return true;
@@ -77,8 +77,12 @@ class KNomina extends CI_Model{
     return $contar;
   }
 
-  public function Listar(){
-    $sConsulta = "SELECT * FROM space.nomina WHERE esta=1";
+  public function Listar($id){
+    if ( $id != "4"){
+      $sConsulta = "SELECT * FROM space.nomina WHERE esta IN ( 1, 2, 3) ";
+    }else{
+      $sConsulta = "SELECT * FROM space.nomina WHERE esta = 4 ";
+    }
     $obj = $this->DBSpace->consultar($sConsulta);
     $lst = array();
     foreach($obj->rs as $c => $v ){
@@ -87,5 +91,69 @@ class KNomina extends CI_Model{
     return $lst;
   }
 
-  
+  public function ListarPagos(){
+    
+    $sConsulta = "select llav as firma, sum(mont) as monto, sum(asig) as asignacion, 
+    sum(dedu) as deduccion, sum(cant) as cantidad from space.nomina group by llav; ";
+   
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $lst = array();
+    foreach($obj->rs as $c => $v ){
+      $lst[] = $v;
+    }
+    return $lst;
+  }
+
+  public function ListarCuadreBanco($firma){
+    
+
+    $sConsulta = "SELECT banc, bnc.nomb, cant, neto FROM (
+    SELECT  pg.banc, count(pg.banc) AS cant, SUM(neto) AS neto FROM space.nomina nm JOIN space.pagos pg ON pg.nomi=nm.oid
+    WHERE nm.llav='" . $firma . "'
+    GROUP BY  pg.banc
+    ORDER BY pg.banc) AS mt
+    LEFT JOIN space.banco bnc ON mt.banc=bnc.codi";
+   
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $lst = array();
+    foreach($obj->rs as $c => $v ){
+      $lst[] = $v;
+    }
+    return $lst;
+  }
+
+  public function Procesar(){
+    $sConsulta = "UPDATE space.nomina SET esta = " . $this->Estatus  . " WHERE oid =" . $this->ID;
+    $obj = $this->DBSpace->consultar($sConsulta);
+    return true;
+  }
+
+  public function RegistrarDetalle($oidn, $presupuesto){
+    $i = 0;
+    $coma = '';
+    $insert = 'INSERT INTO space.nomina_detalle (oidn, part, estr, conc,  fech, tipo, mont  ) VALUES ';
+    foreach ($presupuesto as $c => $v) {     
+      if ($v['tp'] != 97 ) {
+        $i++;
+        $coma = $i > 1?",":"";      
+        $insert .= $coma . "(" . $oidn . ",'" . $v['part'] . "','" . $v['estr'] . "','" . $v['abv'] . 
+        "',Now()," . $v['tp'] . "," . round($v['mnt'],2) . ")";
+      }
+
+    }
+    //print_r($insert);
+    $obj = $this->DBSpace->consultar($insert);
+    return true;
+  }
+
+
+  public function VerDetalles(){
+    $sConsulta = "SELECT * FROM space.nomina_detalle WHERE oidn=" . $this->ID;
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $lst = array();
+    foreach($obj->rs as $c => $v ){
+      $lst[] = $v;
+    }
+    return $lst;
+  }
 }

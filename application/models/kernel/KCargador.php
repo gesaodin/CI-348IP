@@ -39,6 +39,13 @@ class KCargador extends CI_Model{
   */
   var $Archivos = null;
 
+  /**
+  * @var KResumenPresupuestario
+  */
+  var $ResumenPresupuestario = array();
+
+  
+
   
 
   /**
@@ -75,6 +82,11 @@ class KCargador extends CI_Model{
   /**
   * @var double
   */
+  var $Incidencias = array();
+
+  /**
+  * @var double
+  */
   var $Cantidad = 0;
 
   /**
@@ -93,6 +105,7 @@ class KCargador extends CI_Model{
     if(!isset($this->DBSpace)) $this->load->model('comun/DBSpace');
     $this->load->model('kernel/KCalculo');
     $this->load->model('kernel/KGenerador');
+    $this->load->model('kernel/KRecibo');
     
   }
 
@@ -175,7 +188,7 @@ class KCargador extends CI_Model{
         grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 4260, 8480, 5320) 
         ORDER BY grado.codigo
         -- AND grado.codigo IN( 10, 15)
-        -- LIMIT 100
+        -- LIMIT 10
         ";
 
     $con = $this->DBSpace->consultar($sConsulta);
@@ -200,8 +213,8 @@ class KCargador extends CI_Model{
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_sqlCVS = fopen("tmp/" . $archivo . "-SQL.sql","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
-    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, banc, nume, tipo, situ, esta, usua, neto ) VALUES ";
-    $linea = 'CEDULA;APELLIDOS;NOMBRES;FECHA INGRESO;FECHA ASCENSO;FECHA RETIRO;COMPONENTE;GRADO;GRADO DESC.;TIEMPO DE SERV.;';
+    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, tipo, nume, banc, situ, esta, usua, neto ) VALUES ";
+    $linea = 'CEDULA;APELLIDOS;NOMBRES;TIPO;BANCO,NUMERO CUENTA;FECHA INGRESO;FECHA ASCENSO;FECHA RETIRO;COMPONENTE;GRADO;GRADO DESC.;TIEMPO DE SERV.;';
     $linea .= 'ANTIGUEDAD;NUM. HIJOS;PORCENTAJE;';
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
@@ -221,7 +234,11 @@ class KCargador extends CI_Model{
     fputs($file,$linea);//Para Generar archivo csv 04102017
     fputs($file,"\n");//Salto de linea
 
-    fputs($file_sqlCVS,$sqlCVS);//Para Generar archivo csv 04102017
+    fputs($file_log, "  REPORTE CON LAS INCIDENCIAS EN LA NOMINA EN GENERAL ");//Para Generar archivo de log
+    fputs($file_log,"\n");//Salto de linea
+
+
+    fputs($file_sqlCVS, $sqlCVS);//Para Generar archivo csv 04102017
     fputs($file_sqlCVS,"\n");//Salto de linea
 
     //print_r($Directivas);
@@ -257,7 +274,7 @@ class KCargador extends CI_Model{
     $this->KNomina->Deduccion = $this->Deduccion;
     $this->KNomina->Cantidad = $this->Cantidad;
     $this->KNomina->Actualizar();
-
+    $this->KNomina->RegistrarDetalle($this->OidNomina , $this->ResumenPresupuestario);
     fclose($file);//Para Generar archivo csv 04102017
     return true;
   }
@@ -274,14 +291,9 @@ class KCargador extends CI_Model{
   private function generarConPatrones(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $v, $sqlID){
       $Bnf->cedula = $v->cedula;
       $Bnf->deposito_banco = ""; //$v->cap_banco; //Individual de la Red
-      $Bnf->anticipo = ""; // $v->anticipo; //Anticipos
-      $Bnf->estatus_activo = ""; // $v->status_id;
-      $Bnf->finiquito = ""; // $v->fcap_banco; //Finiquito
       $Bnf->apellidos = $v->apellidos; //Individual del Objeto
-      $Bnf->diferencia_asig_a = ""; // $v->dif_asi_anti; // Diferencia de Asignacion de Antiguedad
       $Bnf->nombres = $v->nombres; //Individual del Objeto
-      $Bnf->garantias_acumuladas =  ""; //$v->dep_garantia; //Individual del Objeto
-      $Bnf->dias_adicionales_acumulados =  ""; //$v->dep_adicional; //Individual del Objeto
+      
       $Bnf->fecha_ingreso = $v->fecha_ingreso;
       $Bnf->numero_hijos = $v->n_hijos;
       $Bnf->tipo = $v->tipo;
@@ -341,19 +353,25 @@ class KCargador extends CI_Model{
             if( $Bnf->Concepto[$rs]['TIPO'] == 99 ){
               $medida_str = $medida[0] . ";";
               $deduccion +=  $medida[0]; 
-              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);          
+              $abreviatura = $Bnf->Concepto[$rs]['ABV'];
+              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);
+              $this->asignarPresupuesto($rs, $medida[0], '99', $abreviatura, $Bnf->Concepto[$rs]['part']);            
             }else if ( $Bnf->Concepto[$rs]['TIPO'] == 98 ){
               $cajaahorro_str = $cajaahorro . ";";
               $deduccion +=  $cajaahorro;
               $abreviatura = $Bnf->Concepto[$rs]['ABV'];
-              $recibo_de_pago[] = array('desc' =>  $abreviatura, 'tipo' => 98,'mont' => $cajaahorro);          
+              $recibo_de_pago[] = array('desc' =>  $abreviatura, 'tipo' => 98,'mont' => $cajaahorro);  
+              $this->asignarPresupuesto( $rs, $cajaahorro, '99', $abreviatura, $Bnf->Concepto[$rs]['part']);        
             }else{
               $segmentoincial .=  $Bnf->Concepto[$rs]['mt'] . ";";
-              $asignacion += $Bnf->Concepto[$rs]['TIPO'] == 1? $Bnf->Concepto[$rs]['mt'] : 0;
-              $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 0 ? $Bnf->Concepto[$rs]['mt']: 0;
-              $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 2 ? $Bnf->Concepto[$rs]['mt']: 0;
-
+              $asignacion += $Bnf->Concepto[$rs]['TIPO'] == 1? $Bnf->Concepto[$rs]['mt']: 0;
+              $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 0? $Bnf->Concepto[$rs]['mt']: 0;
+              $deduccion += $Bnf->Concepto[$rs]['TIPO'] == 2? $Bnf->Concepto[$rs]['mt']: 0;
+              
               $recibo_de_pago[] = array('desc' =>  $rs, 'tipo' => $Bnf->Concepto[$rs]['TIPO'],'mont' => $Bnf->Concepto[$rs]['mt']);
+              //asgnar prepuesto
+              $this->asignarPresupuesto($rs, $Bnf->Concepto[$rs]['mt'], $Bnf->Concepto[$rs]['TIPO'], $Bnf->Concepto[$rs]['ABV'], $Bnf->Concepto[$rs]['part']);
+               
             }
             
             //
@@ -383,21 +401,29 @@ class KCargador extends CI_Model{
           ) );
                
         $neto = $asignacion - $deduccion;
+        
         if ($Bnf->sueldo_base > 0 && $Bnf->porcentaje > 0 ){
           $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-           ';' .  $this->generarLinea($segmentoincial) . $medida_str . 
+           ';' .  $Bnf->tipo . ";" . $Bnf->banco . ";" . $Bnf->numero_cuenta . 
+           ";" . $this->generarLinea($segmentoincial) . $medida_str . 
            $cajaahorro_str . $asignacion . ';' . $deduccion . ';'  . $neto;
+        
+        
         }else{
           $log = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . ';';
         }
 
         
+        $this->KRecibo->Conceptos = $recibo_de_pago;
         
+        $this->KRecibo->Asignacion = $asignacion;
+        $this->KRecibo->Deduccion = $deduccion;
+
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
-        json_encode($recibo_de_pago) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
+        json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "','" . $Bnf->situacion . "',201,'SSSIFANB'," . $neto . ")";
-      }else{        
+      }else{      //En el caso que exista el recuerdo en la memoria   
         $medida = $this->calcularMedidaJudicial($this->KMedidaJudicial,  $Bnf);
         $cajaahorro = $this->obtenerCajaAhorro(  $Bnf );
 
@@ -408,15 +434,20 @@ class KCargador extends CI_Model{
         for ($i= 0; $i < $cant; $i++){
           $result = $map[$i]['codigo'];
           if (isset($NConcepto[$result])) {                    
-            if( $NConcepto[$result]['TIPO'] == 99 ){
+            if( $NConcepto[$result]['TIPO'] == 99 ){ //MEDIDA JUDICIAL
               $medida_str = $medida[0] . ";";
               $deduccion +=  $medida[0];
-              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);             
-            }else if ( $NConcepto[$result]['TIPO'] == 98 ){
+              $abreviatura = $NConcepto[$result]['ABV'];
+              $recibo_de_pago[] = array('desc' =>  $medida[1], 'tipo' => 99,'mont' => $medida[0]);
+              $this->asignarPresupuesto( $result, $medida[0], '99', $abreviatura, $NConcepto[$result]['part']);            
+            }else if ( $NConcepto[$result]['TIPO'] == 98 ){ //CAJAS DE AHORRO
               $cajaahorro_str = $cajaahorro . ";";
               $deduccion +=  $cajaahorro;
               $abreviatura = $NConcepto[$result]['ABV'];
               $recibo_de_pago[] = array('desc' =>  $abreviatura, 'tipo' => 98,'mont' => $cajaahorro);
+              $this->asignarPresupuesto($result, $cajaahorro, '98', $abreviatura, $NConcepto[$result]['part']); 
+            }else{
+              $this->asignarPresupuesto($result, $NConcepto[$result]['mt'], $NConcepto[$result]['TIPO'], $NConcepto[$result]['ABV'], $NConcepto[$result]['part']);
             }
           }
         }        
@@ -424,16 +455,20 @@ class KCargador extends CI_Model{
         $neto = $asignacion - $deduccion;
         if($Perceptron->Neurona[$patron]["SUELDOBASE"] > 0   && $Perceptron->Neurona[$patron]["PORCENTAJE"] > 0  ){
           $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
+          ';' .  $Bnf->tipo . ";" . $Bnf->banco . ";" . $Bnf->numero_cuenta . 
           ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
           $medida_str . $cajaahorro_str . $asignacion . ';' . $deduccion . ';' . $neto;
         }else{
           $log = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . ';';
         }
         
+        $this->KRecibo->Conceptos = $recibo_de_pago;
+        $this->KRecibo->Asignacion = $asignacion;
+        $this->KRecibo->Deduccion = $deduccion;
 
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
-        json_encode($recibo_de_pago) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
+        json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', 201, 'SSSIFANB'," . $neto . ")";
         
       }
@@ -489,215 +524,40 @@ class KCargador extends CI_Model{
 
   }
 
-  private function evaluarLotesLinuxComando($archivo, $situacion){
-    $comando = "wc -l tmp/" . $archivo . ".csv | awk -F\  '{print $1}'"; //Contar lineas del archivo generadas
-    exec($comando, $linea);
-    $comando = "cd tmp/; zip " . $archivo . ".zip " . $archivo . ".csv";
-    exec($comando);
-    $comando = "cd tmp/; md5sum " . $archivo . ".csv  | awk -F\  '{print $1}'";
-    exec($comando, $firma);
-    $comando = "cd tmp/; awk -F\; '{SUMG += $35; SUMD += $36; SUMA += $37} END {printf \"%.2f\", SUMG; printf \";%.2f\", SUMD; printf \";%.2f\", SUMA}' " . $archivo . ".csv";
-    exec($comando, $monto);
-    $g_d = explode(";", $monto[0]);
-    $comando = "cd tmp; du -sh " . $archivo . ".csv | awk  '{print $1}'";
-    exec($comando, $peso);
-    $time = date("Y-m-d H:i:s");
-
-
-    //exec("cd tmp/; rm -rf " . $archivo . ".csv");
-
-    $sInsert = 'INSERT INTO space.archivos (arch,tipo,peso,cert,regi,usua,gara,diaa,asig,fech,esta)
-    VALUES (\'' . $archivo . '\',9,\'' . $peso[0] . '\',\'' . $firma[0] . '\',\'' . $linea[0] . '\',\'' .
-    $_SESSION['usuario'] . '\',' . $g_d[0] . ',' . $g_d[1] . ',' . $g_d[2] . ',\'' . $time . '\',0);';
-
-
-    $rs = $this->DBSpace->consultar($sInsert);
-
-    $this->Resultado = array(
-      'l' => $linea[0],
-      'f' => $firma[0],
-      'c' => $archivo,
-      'g' => number_format($g_d[0], 2, ',','.'),
-      'd' => number_format($g_d[1], 2, ',','.'),
-      'a' => number_format($g_d[2], 2, ',','.'),
-      'p' => $peso[0],
-      't' => $time,
-      'e' => $rs,
-      'i' => $sInsert
-    );
-  }
-
-  /**
-  *
-  * @param string
-  * @param int | 0 Garantias | 1 Dias Adicionales
-  * @param int Porcentaje de distribucíón de pago
-  *
-  * @retun bool
-  */
-  function GarantiasDiasAdicionales($archivo =  '',  $tipo = 0, $porce = 100){
-    $fecha = Date("Y-m-d");
-
-    switch ($tipo) {
-      case 0:
-        $columna = "35";
-        $parametro = "G";
-        $codigo = 33; //tipo de movimientos para calculos Garantias
-        break;
-      case 1:
-        $columna = "36";
-        $parametro = "D";
-        $codigo = 30;  //Calculo de dias adicionales
-        break;
-      case 2:
-        $columna = "38";
-        $parametro = "A";
-        $codigo = 8;  //Calculo de dias adicionales
-        break;
-      default:
-        $columna = "36";
-        $parametro = "A";
-        $codigo = 8;  //Calculo de dias adicionales
-        break;
-    }
-
-    $ruta = explode("/", BASEPATH);
-    $c = count($ruta)-2;
-    $r = '/';
-    for ($i=1; $i < $c; $i++) {
-      $r .= $ruta[$i] . '/';
-    }
-
-    $r .= 'tmp/';
-    $porcen = '';
-    if($porce < 100){
-      $porcen = '* ' . $porce . '/100';
-    }
-
-    $sub = substr($archivo, 24, 32);
-    $file = $parametro . $archivo;
-
-    $comando = 'cd tmp/; rm -rf '. $file . '; mkdir '. $file;
-    exec($comando, $err);
-
-    if($tipo == 2){
-      //$comando = "cd tmp/; awk -F';' '{ for (x=1; x<=34; x++) {  printf \"%s;\", $x } printf \"\n\" }' " . $archivo . ".csv >>  " . $file . "/" . $file . ".csv";
-      $comando = 'cd tmp/; awk -F\';\' \'{ for (x=1; x<=34; x++) {  printf "%s;", $x } printf $' .
-      $columna . $porcen . ' "\n" } \' ' . $archivo . '.csv >> ' . $file . '/' . $file . '.csv';
-      exec($comando, $firma);
+  private function asignarPresupuesto($rs, $mt, $tp, $ab, $part){
+    if (isset($this->ResumenPresupuestario[$rs])){
+      $mt_aux = $this->ResumenPresupuestario[$rs]['mnt'];
+      $this->ResumenPresupuestario[$rs] =  array( 
+        'mnt' => $mt_aux + $mt, 
+        'tp' => $tp, 
+        'abv' => $ab,
+        'estr' => '',
+        'part' => $part
+      );
     }else{
-      $comando = 'cd tmp/; awk -F\';\' \'{ for (x=1; x<=28; x++) {  printf "%s;", $x } printf $' .
-      $columna . $porcen . ' "\n" } \' ' . $archivo . '.csv >> ' . $file . '/' . $file . '.csv';
-      exec($comando, $firma);
+      $this->ResumenPresupuestario[$rs] = array( 
+        'mnt' => $mt, 
+        'tp' => $tp, 
+        'abv' => $ab,
+        'estr' => '',
+        'part' => $part
+      );
     }
-
-
-    $comando = 'cd tmp/' . $file . '/; awk -F\';\' \'{SUM+=$NF} END {printf "%.2f", SUM }\' ' . $file . '.csv';
-    exec($comando, $monto);
-
-    $comando = 'cd tmp/' . $file . '/; awk -F\';\' \'{printf $1 ";' . $sub . ';' . $codigo . ';" $NF ";'
-    . $fecha . ';' . $fecha . ';' . $_SESSION['usuario'] . '\n" }\' ' . $file . '.csv >> ' . $sub . '.csv';
-    exec($comando, $insert);
-
-    $comando = 'cd tmp/' . $file . '/; du -sh ' .  $file . '.csv | awk  \'{print $1}\'';
-    exec($comando, $peso);
-
-    $comando = 'cd tmp/' . $file . '/; zip ' .  $file . '.zip ' .  $file . '.csv';
-    exec($comando, $firma);
-
-    $time = date("Y-m-d H:i:s");
-
-
-    $sUpdate = 'UPDATE  space.archivos SET esta=1, tipo=' . $tipo . ' WHERE arch=\'' . $archivo . '\';';
-
-
-    $rs = $this->DBSpace->consultar($sUpdate);
-
-
-
-    $this->Resultado = array(
-      'd' => number_format($monto[0], 2, ',','.'),
-      'p' => $peso[0],
-      't' => $time,
-      'a' => $parametro . $archivo, //,
-      //'rs' => $bash,
-      'tipo' => $tipo
-    );
-
-    return true;
   }
-
-  function ConsultarArchivos(){
-    $s = 'SELECT * FROM  space.archivos WHERE esta=2';
-    $obj = $this->DBSpace->consultar($s);
-    $arr = array();
-    if($obj->code == 0 ){
-      foreach ($obj->rs as $clv => $val) {
-
-
-        $arr[] = array(
-          'id' => $val->arch,
-          'tipo' => $val->tipo,
-          'tipotexto' => $this->tipoMovimiento($val->tipo),
-          'fecha' => $val->fech,
-          'peso' => $val->peso,
-          'usuario' => $val->usua,
-          'registro' => $val->regi,
-          'aporte' => $val->apor,
-          'apertura' => $val->aper,
-          'sub' => $sub = substr($val->arch, 24, 33)
-        );
-      }
-    }
-    return $arr;
-  }
-
-  function tipoMovimiento($id) {
-    $tipo = '';
-    switch ($id) {
-      case 0:
-        $tipo = 'Garantias';
-        # code...
+ 
+  private function validarEstatusParalizado(MBeneficiario &$Bnf){
+    switch ($Bnf->estatus_id) {
+      case 201:
+        
         break;
-      case 1:
-        $tipo = 'Días Adicionales';
-        # code...
-        break;
-      case 2:
-        $tipo = 'Asignación de Antiguedad';
-        # code...
+      case 202:
+
         break;
       default:
-        $tipo = 'Días Adicionales';
-        # code...
+        
         break;
     }
-    return $tipo;
   }
-  /*
-  *
-    DROP TABLE space.archivos;
-    CREATE TABLE space.archivos(
-      oid serial NOT NULL,
-      arch character varying(128) NOT NULL,
-      tipo integer,
-      peso character varying(16) NOT NULL,
-      cert character varying(128) NOT NULL,
-      regi integer,
-      usua character varying(64) NOT NULL,
-      fech timestamp without time zone,
-      gara numeric,
-      diaa numeric,
-      asig numeric,
-      esta integer,
-      aper numeric,
-      apor numeric,
-      CONSTRAINT archivos_pkey PRIMARY KEY (oid)
-    );
-
-  */
-
-
   /**
   * Crear Txt Para los bancos e insertar movimientos
   *
@@ -705,7 +565,11 @@ class KCargador extends CI_Model{
   * @param int
   * @return array
   */
-  function CrearTxtMovimientos( $archivo =  '', $tipo = 0){
+  function CrearInsertPostgresql( $archivo =  '', $oid = 0, $estatus = 0, $llave = '' ){
+    //  Habilitar permisos en linux Centos 7
+    //  /sbin/restorecon -v /var/www/html/CI-3.1.10/tmp/script.sh
+    // getsebool -a | grep httpd  
+    // setsebool -P httpd_ssi_exec=1
     $fecha = Date("Y-m-d");
 
 
@@ -716,109 +580,29 @@ class KCargador extends CI_Model{
       $r .= $ruta[$i] . '/';
     }
 
-    $r .= 'tmp/' . $archivo . '/';
-    $sub = substr($archivo, 25, 33);
+    $r .= 'tmp/' . $archivo . '-SQL';
+    
 
 
-    $file = $this->KGenerador->AperturaTXT($archivo, $sub, $tipo);
-    $fils = $this->KGenerador->AporteTXT($archivo, $sub, $tipo);
-
-
-    $comando = 'cd tmp/' . $archivo . '/; zip APERT' . $sub . '.zip APERT' . $sub . '.txt';
+    $comando = 'cd tmp/; time ./load.sh ' . $r . ' 2>&1';
+    //print_r($comando);
     exec($comando, $bash);
+    //print_r($bash);
 
-    $comando = 'cd tmp/' . $archivo . '/; zip APORT' . $sub . '.zip APORT' . $sub . '.txt';
-    exec($comando, $bash);
-
-    $comando = 'cd tmp/;time ./script.sh ' . $r . $sub . ' 2>&1';
-    exec($comando, $bash);
-
-    $sUpdate = 'UPDATE  space.archivos SET esta=2, aper=' . $file['c'] . ', apor=' . $fils['c'] . ' WHERE arch=\'' . substr($archivo, 1, 33) . '\';';
-
-
+    $sUpdate = 'UPDATE  space.nomina SET esta=4, llav = \'' . $llave . '\'  WHERE oid=' . $oid . ';';
     $rs = $this->DBSpace->consultar($sUpdate);
 
 
     $this->Resultado = array(
       'a' => $archivo,
-      'aper' =>  'APERT' . $sub . '.zip',
-      'apor' =>  'APORT' . $sub . '.zip',
-      'rs' => $bash,
-      'd' => $file['d'],
-      'caper' => $file['c'], //,
-      'capro' => $fils['c']
+      'll' => $llave,
+      'rs' => $bash
     );
+    
     return $this->Resultado;
   }
-  /**
-   *
-   * Creación de tablas para los cruce en el esquema space como
-   * tablacruce permite ser indexada para evaluar la tabla movimiento
-   * tipos de movimiento [3,31,32] dando como resultado del crosstab
-   * cedula | Deposito AA | Deposito Dia Adicionales | Deposito Garantias
-   *
-   *  -----------------------------------------------------
-   *  INICIANDO PROCESOS POR LOTES PARA EFECTOS DE ESTUDIO
-   *  -----------------------------------------------------
-   *
-   * @return  void
-   */
-  public function IniciarLoteEstudiar($directiva, $fecha, $archivo, $autor, $limit){
-    ini_set('memory_limit', '512M'); //Aumentar el limite de PHP
 
-    $this->load->model('comun/Dbpace');
-    $this->load->model('fisico/MBeneficiario');
-    $con = $this->DBSpace->consultar("
-      SELECT
-        beneficiario.nombres, beneficiario.apellidos,
-        beneficiario.cedula, fecha_ingreso,f_ult_ascenso, grado.codigo,grado.nombre as gnombre,
-        beneficiario.componente_id, n_hijos, st_no_ascenso,
-        tablacruce.cap_banco,tablacruce.dep_adicional,tablacruce.dep_garantia,
-        st_profesion,anio_reconocido, mes_reconocido,dia_reconocido,beneficiario.status_id as status_id
-        FROM
-          beneficiario
-        JOIN
-          grado ON beneficiario.grado_id=grado.id
-        LEFT JOIN space.tablacruce ON beneficiario.cedula=space.tablacruce.cedula
-        WHERE beneficiario.status_id=201 LIMIT " . $limit . ";");
 
-      $this->asignarBeneficiarioEstudiarPatron($con->rs, $directiva, $fecha, $archivo, $autor);
-
-      //$this->evaluarLotesLinuxComando($archivo);
-  }
-
-  private function asignarBeneficiarioEstudiarPatron($obj, $id, $fecha, $archivo, $autor){
-    $this->load->model('kernel/KCalculoLote');
-    $this->load->model('kernel/KDirectiva');
-    $Directivas = $this->KDirectiva->Cargar($id); //Directivas
-    //print_r($Directivas);
-    $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
-    //$lst = array(); //
-    //$file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");
-
-    //$linea = 'cedula;grado_codigo;grado;componente_id;componente;apellidos_nombres;fecha_ingreso;tiempo_servicio;n_hijos;fecha_ultimo_ascenso;antiguedad_grado;sueldo_base;';
-    //$linea .= 'prima_tmt;prima_transporte;prima_smt;prima_tiemposervicio;prima_dmt;prima_descendencia;prima_emt;prima_especial;prima_nmt;';
-    //$linea .= 'prima_noascenso;prima_pmt;prima_profesionalizacion;';
-    //$linea .= 'sueldo_mensual;alicuota_aguinaldos;alicuota_vacaciones;sueldo_integral;asignacion_antiguedad;';
-    //$linea .= 'deposito_banco;garantias_acumuladas;dias_adicionales_acumulados;no_depositado_banco;garantias;dias_adicionales';
-    //fputs($file,$linea);
-    //fputs($file,"\n");
-    foreach ($obj as $k => $v) {
-      $Bnf = new $this->MBeneficiario;
-      $this->KCalculoLote->Instanciar($Bnf, $Directivas);
-
-      //$linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
-      $linea = $this->generarSinPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
-
-      //fputs($file,$linea);
-      //fputs($file,"\n");
-      //unset($Bnf);
-    }
-
-    //fclose($file);
-    print_r($this->KPerceptron->NeuronaArtificial);
-    echo count($this->KPerceptron->NeuronaArtificial) . '<br>';
-  }
 
   /**
   * Generar Codigos por Patrones en la Red de Inteligencia
@@ -876,136 +660,13 @@ class KCargador extends CI_Model{
           'SFINAL' =>  $segmentofinal)
         );
 
-        //$linea = $this->generarLinea($Bnf);
 
-      //}else{
-        //$Bnf->tiempo_servicio = $Perceptron->Neurona[$patron]['T_SERVICIO'];
-        //$Bnf->asignacion_antiguedad = $Perceptron->Neurona[$patron]['A_ANTIGUEDAD'];
-        //$Bnf->sueldo_integral = $Perceptron->Neurona[$patron]['S_INTEGRAL'];
-        //$CalculoLote->GenerarNoDepositadoBanco();
-        //$linea = $this->generarLineaMemoria($Bnf, $Perceptron->Neurona[$patron]);
         $linea = "";
-      //}
+ 
       return $linea;
   }
 
 
-
-  public function ConsultarGrupos($json){
-    ini_set('memory_limit', '512M'); //Aumentar el limite de PHP
-    $lst = array();
-    $fecha = date("Y-m-d");
-    $this->load->model('comun/Dbpace');
-    $this->load->model('kernel/KSensor');
-    $this->load->model('fisico/MBeneficiario');
-    $this->load->model('kernel/KCalculoLote');
-    $this->load->model('kernel/KDirectiva');
-    $Directivas = $this->KDirectiva->Cargar('', $fecha); //Directivas
-    $this->load->model('kernel/KPerceptron'); //Red Perceptron Aprendizaje de patrones
-
-
-    $fde = $json->fde;
-    $nom = $json->nom;
-    $condicion = ' beneficiario.status_id=' . $json->sit;
-    if($nom != "") $condicion .= ' AND (beneficiario.nombres ~* \'' . $json->nom . '\' OR apellidos ~* \'' . $json->nom . '\')';
-    if($json->gra != "99") $condicion .= ' AND grado.codigo=' . $json->gra;
-    if($json->com != "99") $condicion .= ' AND beneficiario.componente_id=' . $json->com;
-    if( $fde != "") $condicion .= ' AND beneficiario.fecha_ingreso BETWEEN \'' . $json->fde . '\' AND \'' . $json->fha . '\'';
-
-    $sConsulta = '
-      SELECT
-        beneficiario.nombres, beneficiario.apellidos,
-        beneficiario.cedula, fecha_ingreso,f_ult_ascenso, grado.codigo,grado.nombre as gnombre,
-        beneficiario.componente_id, n_hijos, st_no_ascenso,
-        st_profesion,anio_reconocido, mes_reconocido,dia_reconocido
-        FROM
-          beneficiario
-        JOIN
-          grado ON beneficiario.grado_id=grado.id
-
-        WHERE ' . $condicion . ' ;';
-
-    $obj = $this->DBSpace->consultar($sConsulta);
-
-    //echo $sConsulta;
-
-    if ($obj->cant < 3000){
-      if($fde == "" && $nom == "") {
-        $lst = $this->generarMenoraMil($this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $obj->rs);
-      } else{
-         $lst = $this->generarSinCalculos($obj->rs);
-      }
-
-    }else{
-
-      if($fde == "" && $nom == ""){
-        $lst = $this->generarMayoraMil($this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $obj->rs);
-      }else{
-         $lst = $this->generarSinCalculosCsv($obj->rs);
-      }
-
-    }
-
-    //fclose($file);
-    //print_r($this->KPerceptron->NeuronaArtificial);
-    //echo count($this->KPerceptron->NeuronaArtificial);
-
-    return $lst;
-
-      //$this->evaluarLotesLinuxComando($archivo);
-  }
-
-
-  private function generarMenoraMil(KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $obj){
-    $lst = array();
-    foreach ($obj as $k => $v) {
-      $Bnf = new $this->MBeneficiario;
-      $this->KCalculoLote->Instanciar($Bnf, $Directivas);
-      $linea = $this->generarConPatronesReporte($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
-      $lst[] = array(
-        'ced' => $Bnf->cedula,
-        'nom' => $Bnf->apellidos . ' ' . $Bnf->nombres,
-        'gra' => $Bnf->grado_nombre,
-        'com' => $Bnf->componente_nombre,
-        'fin' => $Bnf->fecha_ingreso,
-        'tse' => $Bnf->tiempo_servicio,
-        'sme' => $Bnf->sueldo_mensual,
-        'sin' => $Bnf->sueldo_integral
-      );
-    }
-    return $lst;
-  }
-
-  private function generarMayoraMil(KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $obj){
-    $lst = array();
-    $firma = md5(date('Y-m-d H:i:s'));
-    $file = fopen("tmp/" . $firma . ".csv","a") or die("Problemas");
-    $linea = 'CEDULA;GRADO;COMPONENTE;BENEFICIARIO;TIEMPO DE SERVICIO;SUELDO MENSUAL;SUELDO INTEGRAL';
-    fputs($file,$linea);
-    fputs($file,"\n");
-
-    foreach ($obj as $k => $v) {
-      $Bnf = new $this->MBeneficiario;
-      $this->KCalculoLote->Instanciar($Bnf, $Directivas);
-      $lin = $this->generarConPatronesReporte($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v);
-      $linea =
-        $Bnf->cedula . ';' .
-        $Bnf->grado_nombre . ';' .
-        $Bnf->componente_nombre . ';' .
-        $Bnf->apellidos . ' ' . $Bnf->nombres . ';' .
-        $Bnf->tiempo_servicio . ';' .
-        $Bnf->sueldo_mensual . ';' .
-        $Bnf->sueldo_integral . ';';
-
-      fputs($file,$linea);
-      fputs($file,"\n");
-      unset($Bnf);
-    }
-    fclose($file);
-
-    $lst[] = array('file' => $firma . '.csv');
-    return $lst;
-  }
 
   private function generarSinCalculosCsv($obj){
     $lst = array();
@@ -1041,74 +702,6 @@ class KCargador extends CI_Model{
     }
     return $lst;
   }
-  /**
-  * Generar Codigos por Patrones en la Red de Inteligencia
-  *
-  * @param MBeneficiario
-  * @param KCalculoLote
-  * @param KPerceptron
-  * @param KDirectiva
-  * @param object
-  * @return void
-  */
-  private function generarConPatronesReporte(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $v){
-      $Bnf->cedula = $v->cedula;
-      $Bnf->apellidos = $v->apellidos; //Individual del Objeto
-      $Bnf->nombres = $v->nombres; //Individual del Objeto
-      $Bnf->fecha_ingreso = $v->fecha_ingreso;
-      $Bnf->numero_hijos = $v->n_hijos;
-      $Bnf->no_ascenso = $v->st_no_ascenso;
-      $Bnf->componente_id = $v->componente_id;
-      $Bnf->componente_nombre = $Directivas['com'][$v->componente_id];
-      $Bnf->grado_codigo = $v->codigo;
-      $Bnf->grado_nombre = $v->gnombre;
-      $Bnf->fecha_ultimo_ascenso = $v->f_ult_ascenso;
-      $Bnf->fecha_retiro = $fecha;
-      $Bnf->prima_profesionalizacion_mt = $v->st_profesion;
-      $Bnf->ano_reconocido = $v->anio_reconocido;
-      $Bnf->mes_reconocido = $v->mes_reconocido;
-      $Bnf->dia_reconocido = $v->dia_reconocido;
-
-      $patron = md5($v->fecha_ingreso.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
-        $v->codigo.$v->f_ult_ascenso.$v->st_profesion.$v->anio_reconocido.$v->mes_reconocido.$v->dia_reconocido);
-
-      //GENERADOR DE CALCULOS DINAMICOS
-      if(!isset($Perceptron->Neurona[$patron])){
-        $CalculoLote->Ejecutar();
-
-        $segmentoincial = $Bnf->sueldo_base . ';' . $Bnf->prima_transporte_mt . ';' .
-                          $Bnf->prima_transporte . ';' . //$Bnf->prima_tiemposervicio_mt . ';' .
-                          $Bnf->prima_tiemposervicio . ';' . $Bnf->prima_descendencia_mt . ';' .
-                          $Bnf->prima_descendencia . ';' . $Bnf->prima_especial_mt . ';' .
-                          $Bnf->prima_especial . ';' . $Bnf->prima_noascenso_mt . ';' .
-                          $Bnf->prima_noascenso . ';' . $Bnf->prima_profesionalizacion_mt . ';' .
-                          $Bnf->prima_profesionalizacion . ';' . $Bnf->sueldo_mensual . ';' .
-                          $Bnf->aguinaldos . ';' . $Bnf->dia_vacaciones . ';' . $Bnf->vacaciones . ';' .
-                          $Bnf->sueldo_integral . ';' . $Bnf->asignacion_antiguedad . ';';
-        $segmentofinal =  $Bnf->garantias . ';' . $Bnf->dias_adicionales;
-
-        $Perceptron->Aprender($patron, array(
-          'DIA_VAC' => $Bnf->dia_vacaciones,
-          'T_SERVICIO' => $Bnf->tiempo_servicio,
-          'A_ANTIGUEDAD' => $Bnf->asignacion_antiguedad,
-          'S_INTEGRAL' => $Bnf->sueldo_integral,
-          'SINCIAL' => $segmentoincial,
-          'SFINAL' =>  $segmentofinal)
-        );
-
-
-      }else{
-        $Bnf->dia_vacaciones =  $Perceptron->Neurona[$patron]['DIA_VAC'];
-        $Bnf->tiempo_servicio = $Perceptron->Neurona[$patron]['T_SERVICIO'];
-        $Bnf->asignacion_antiguedad = $Perceptron->Neurona[$patron]['A_ANTIGUEDAD'];
-        $Bnf->sueldo_integral = $Perceptron->Neurona[$patron]['S_INTEGRAL'];
-        $CalculoLote->GenerarNoDepositadoBanco();
-      }
-      return true;
-
-
-    }
-
 
   
 }

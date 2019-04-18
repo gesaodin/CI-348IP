@@ -70,7 +70,8 @@ class KCalculoLote extends CI_Model{
     $this->Beneficiario->Concepto['sueldo_base'] = array(
       'mt' => round($this->Beneficiario->sueldo_base,2), 
       'ABV' =>  'sueldo_base', 
-      'TIPO' => 97
+      'TIPO' => 97,
+      'part' => '40701010101'
     );
     // echo ("<pre>");
     // print_r($this->Directiva);
@@ -118,7 +119,8 @@ class KCalculoLote extends CI_Model{
       $this->Beneficiario->Concepto[$rs] = array(
         'mt' => round($valor,2), 
         'ABV' =>  $rs, 
-        'TIPO' => 97
+        'TIPO' => 97,
+        'part' => '40701010101'
       );
     }
     //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
@@ -130,8 +132,9 @@ class KCalculoLote extends CI_Model{
 
     $this->Beneficiario->Concepto["sueldo_mensual"] = array(
       'mt' => round($sueldo_mensual,2), 
-      'ABV' =>  "sueldo_mensual", 
-      'TIPO' => 1 
+      'ABV' =>  "PENSION MILITAR", 
+      'TIPO' => 1,
+      'part' => '40701010101'
     );
    //Formular Conceptos
     foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
@@ -141,7 +144,8 @@ class KCalculoLote extends CI_Model{
       $this->Beneficiario->Concepto[$rs] = array(
         'mt' => round($valor,2), 
         'ABV' =>  $obj['abv'], 
-        'TIPO' => $obj['tipo'] 
+        'TIPO' => $obj['tipo'],
+        'part' => $obj['part']
       );
       $valor = 0;
     }

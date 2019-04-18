@@ -213,10 +213,14 @@ class WServer extends REST_Controller{
 
         //print_r($this->KCargador->_MapWNomina);
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
+        $neto = round( $this->KCargador->Neto, 2 );
+        $asig = round( $this->KCargador->Asignacion, 2 );
+        $dedu = round( $this->KCargador->Deduccion, 2 );
+
         $segmento = array(
-            'neto' => number_format($this->KCargador->Neto, 2, ',','.'),
-            'asignacion' => number_format($this->KCargador->Asignacion, 2, ',','.'),
-            'deduccion' => number_format($this->KCargador->Deduccion, 2, ',','.'),
+            'neto' => number_format($neto, 2, ',','.'),
+            'asignacion' => number_format($asig, 2, ',','.'),
+            'deduccion' => number_format($dedu, 2, ',','.'),
             'registros' => $this->KCargador->Cantidad,
             'md5' => $firma,
             'paralizados' => 0,
@@ -226,7 +230,8 @@ class WServer extends REST_Controller{
             'oid' => $this->KCargador->OidNomina,
             'tipo' => $this->post("tipo"),
             'nombre' => $this->post("nombre"),
-            'url' => base_url()
+            'url' => base_url(),           
+            'resumen' => $this->KCargador->ResumenPresupuestario
         );        
         $this->response($segmento);
     }
@@ -291,10 +296,55 @@ class WServer extends REST_Controller{
 		$this->response($Contar);
     }
 
-    function listartpendientes_get(){
+    function listartpendientes_get($id){
         $this->load->model('kernel/KNomina');
-		$lst = $this->KNomina->Listar();
+		$lst = $this->KNomina->Listar($id);
 		$this->response($lst);
     }
+    function listarpagos_get(){
+        $this->load->model('kernel/KNomina');
+		$lst = $this->KNomina->ListarPagos();
+		$this->response($lst);
+    }
+    function cuadrebanco_get($id){
+        $this->load->model('kernel/KNomina');
+		$lst = $this->KNomina->ListarCuadreBanco($id);
+		$this->response($lst);
+    }
+
+
+    function nominacerrar_get($nomina, $estatus){
+        $this->load->model('kernel/KNomina');
+        $this->KNomina->ID = $nomina;
+        $this->KNomina->Estatus = $estatus;
+		$lst = $this->KNomina->Procesar( );
+		$this->response($lst);
+    }
+
+    function nominaprocesar_post(){
+        $resp = array();
+        $this->load->model('kernel/KNomina');
+        $this->load->model('kernel/KCargador');
+        $fecha = date('d/m/Y H:i:s');
+        $llave = md5($fecha);
+        $arr = $this->post();        
+        foreach ($arr as $c => $v) {
+            $oid = $v["id"];
+            $esta = $v["estatus"];
+            $nomb = $v["nombre"];
+            $this->KNomina->ID = $v["id"];
+            $this->KNomina->Estatus = $v["estatus"];
+            $this->KNomina->Procesar( );            
+            $resp[] = $this->KCargador->CrearInsertPostgresql( $nomb, $oid, $esta, $llave );
+        }
+        $this->response($resp);
+    }
+    
+    function verpartida_get($id) {
+        $this->load->model('kernel/KNomina');
+        $this->KNomina->ID = $id;
+        $this->response($this->KNomina->VerDetalles());
+    }
+
 }
 	
