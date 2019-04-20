@@ -211,7 +211,6 @@ class WServer extends REST_Controller{
 
         $this->KCargador->_MapWNomina = $this->post();
 
-        //print_r($this->KCargador->_MapWNomina);
         $this->KCargador->IniciarLote($data, $firma, "SSSIFANB");
         $neto = round( $this->KCargador->Neto, 2 );
         $asig = round( $this->KCargador->Asignacion, 2 );

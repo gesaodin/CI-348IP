@@ -59,11 +59,14 @@ class KCalculoLote extends CI_Model{
     $cod = $this->Beneficiario->grado_codigo . $this->Beneficiario->antiguedad_grado;
     $sueldo = $this->Directiva['sb'];
     
-    if($this->Beneficiario->antiguedad_grado < 0){
-      $cod = $this->Beneficiario->grado_codigo . "0";
+    if( $this->Beneficiario->situacion != "I"){
+      if($this->Beneficiario->antiguedad_grado < 0){
+        $cod = $this->Beneficiario->grado_codigo . "0";
+      }
+      $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
+    }else{
+      $this->Beneficiario->sueldo_base = $this->Directiva['salario'];
     }
-    
-    $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
 
 
     // $this->Beneficiario->sueldo_base = ($this->Beneficiario->sueldo_base * $this->Beneficiario->porcentaje) / 100;
