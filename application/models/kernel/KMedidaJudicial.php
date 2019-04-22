@@ -33,7 +33,7 @@ class KMedidaJudicial extends CI_Model{
 				
 				break;
 		}
-        $query = 'SELECT cedula, tpag, fnxm, caut, auto, ncue, nomb  
+        $query = 'SELECT cedula, nomb, pare, cben, bene,  caut, auto, ncue,  inst, tcue, ncue, tpag, fnxm
 		FROM space.medidajudicial mj
 		LEFT JOIN space.medidajudicialtipo mjt ON mj.tipo=mjt.oid 
 		WHERE mj.estatus = 1 AND mj.tipo=' . $tipo;
@@ -43,12 +43,18 @@ class KMedidaJudicial extends CI_Model{
 
 		foreach ($rs as $c => $v) {
             $medida = array(
-                'tpag' => $v->tpag,
-                'fnxm' => $v->fnxm,
-                'caut' => $v->caut,
-                'auto' => $v->auto,
-				'ncue' => $v->ncue,
-				'nomb' => $v->nomb				
+				'cedula' => $v->cedula, //Cedula del titula de la medida
+				'nomb' => $v->nomb,	//Descripcion de la medidaa
+				'pare' => $v->pare, //Parentesco
+				'cben' => $v->cben, //Cedula Beneficiario
+				'bene' => $v->bene, //Nombre Beneficiario
+                'caut' => $v->caut, //Cedula Autorizado
+				'auto' => $v->auto, //Nombre del autorizado
+				'tpag' => $v->tpag, 
+				'inst' => $v->inst, // Institucion bancaria
+				'tcue' => $v->tcue, // Tipo de cuenta
+				'ncue' => $v->ncue, // Numero de Cuenta
+				'fnxm' => $v->fnxm, // Formula monto
             );
             $arr[$v->cedula][] = $medida;
         }

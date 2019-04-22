@@ -57,9 +57,8 @@ class KCalculoLote extends CI_Model{
     $this->TiempoServicios();
     
     $cod = $this->Beneficiario->grado_codigo . $this->Beneficiario->antiguedad_grado;
-    $sueldo = $this->Directiva['sb'];
-    
-    if( $this->Beneficiario->situacion != "I"){
+    $sueldo = $this->Directiva['sb'];    
+    if( $this->Beneficiario->situacion != "I" && $this->Beneficiario->situacion != "PG" ){     
       if($this->Beneficiario->antiguedad_grado < 0){
         $cod = $this->Beneficiario->grado_codigo . "0";
       }
@@ -108,30 +107,36 @@ class KCalculoLote extends CI_Model{
     $numero_hijos = $this->Beneficiario->numero_hijos;
     $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;
     $porcentaje_profesionalizacion = $this->Beneficiario->prima_profesionalizacion_mt; 
-    
-    //Establecer Primras
-    foreach ($lst as $c => $v) {
-      $monto_nominal = $v;
-      $rs =  $this->Directiva['fnx'][$c]['rs']; // Como se llama la variable
-      $rs_mt =  $this->Directiva['fnx'][$c]['rs'] . '_mt';
-      $fnx =  $this->Directiva['fnx'][$c]['fn'];
-      eval('$valor = ' . $fnx);
-      $this->Beneficiario->$rs = round($valor,2);
-      $this->Beneficiario->$rs_mt = $monto_nominal;
-      $this->Beneficiario->monto_total_prima += $this->Beneficiario->$rs;
-      $this->Beneficiario->Concepto[$rs] = array(
-        'mt' => round($valor,2), 
-        'ABV' =>  $rs, 
-        'TIPO' => 97,
-        'part' => '40701010101'
-      );
+    $total_primas = 0;
+    $sueldo_mensual = $sueldo_base;
+    $pension = $sueldo_base;
+
+    if( $this->Beneficiario->situacion != "PG" ){
+      //Establecer Primras
+      foreach ($lst as $c => $v) {
+        $monto_nominal = $v;
+        $rs =  $this->Directiva['fnx'][$c]['rs']; // Como se llama la variable
+        $rs_mt =  $this->Directiva['fnx'][$c]['rs'] . '_mt';
+        $fnx =  $this->Directiva['fnx'][$c]['fn'];
+        eval('$valor = ' . $fnx);
+        $this->Beneficiario->$rs = round($valor,2);
+        $this->Beneficiario->$rs_mt = $monto_nominal;
+        $this->Beneficiario->monto_total_prima += $this->Beneficiario->$rs;
+        $this->Beneficiario->Concepto[$rs] = array(
+          'mt' => round($valor,2), 
+          'ABV' =>  $rs, 
+          'TIPO' => 97,
+          'part' => '40701010101'
+        );
+      }
+      //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
+      $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
+      $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;      
+      $sueldo_mensual = $pension;
     }
-    //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
-    $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
-    $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
+
     $this->Beneficiario->pension = $pension;
     $this->Beneficiario->sueldo_mensual = $pension;
-    $sueldo_mensual = $pension;
 
     $this->Beneficiario->Concepto["sueldo_mensual"] = array(
       'mt' => round($sueldo_mensual,2), 
@@ -139,7 +144,7 @@ class KCalculoLote extends CI_Model{
       'TIPO' => 1,
       'part' => '40701010101'
     );
-   //Formular Conceptos
+  //Formular Conceptos
     foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
       $fnx = $obj['fn'];
       $rs = $obj['rs'];     
@@ -151,9 +156,8 @@ class KCalculoLote extends CI_Model{
         'part' => $obj['part']
       );
       $valor = 0;
-    }
-    
-    
+    }  
+   
     
   }
 

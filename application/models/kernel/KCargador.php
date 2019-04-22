@@ -84,11 +84,27 @@ class KCargador extends CI_Model{
   */
   var $Incidencias = array();
 
+
   /**
   * @var double
   */
   var $Cantidad = 0;
 
+  /**
+  * @var double
+  */
+  var $SQLMedidaJudicial = "";
+
+  /**
+  * @var double
+  */
+  var $CantidadMedida = 0;
+
+  /**
+  * @var double
+  */
+  var $ComaMedida = "";
+  
   /**
    * @var WNomina
    */
@@ -118,46 +134,15 @@ class KCargador extends CI_Model{
   }
 
   /**
-   * Generar Indices para procesos de lotes (Activos)
+   *  Generar archivos para procesos de lotes (Activos)
    *
-   * Creación de tablas para los cruce en el esquema space como
-   * tablacruce permite ser indexada para evaluar la tabla movimiento
-   * tipos de movimiento [3,31,32] dando como resultado del crosstab
-   * cedula | Deposito AA | Deposito Dia Adicionales | Deposito Garantias
-   *
+   *  Creación de tablas para los esquemas space
    *  ---------------------------------------------
    *  INICIANDO PROCESOS POR LOTES
    *  ---------------------------------------------
    *
    * @return  void
    */
-  public function PrepararIndices($estatus = 201){
-    $this->load->model('kernel/KSensor');
-    $this->load->model('comun/DBSpace');
-    $rs = $this->DBSpace->consultar(
-            "DROP TABLE IF EXISTS space.tablacruce;
-            CREATE TABLE space.tablacruce AS SELECT * FROM space.crosstab(
-              'SELECT C.cedula, C.id, COALESCE(SUM(monto),0) AS monto  FROM (
-              SELECT A.cedula, A.status_id, B.id FROM (select cedula,status_id
-              from beneficiario WHERE status_id=" . $estatus . ") AS A, (SELECT id from tipo_movimiento t WHERE
-                t.id IN (3,5,9,14,25,31,32) ) AS B) AS C
-              LEFT JOIN movimiento m ON m.cedula=C.cedula AND C.id=m.tipo_movimiento_id
-              WHERE C.status_id=" . $estatus . "
-              GROUP BY C.cedula, C.id
-              ORDER BY C.cedula, C.id' ) AS rs
-              (cedula character varying(12),
-              cap_banco numeric, -- CAPITAL EN BANCO
-              anticipo numeric,  -- ANTICIPO
-              fcap_banco numeric, -- FINIQUITO
-              dif_asi_anti numeric, -- DIF. DE FINIQUITO
-              anticipor numeric, -- REVERSO
-              dep_adicional numeric, -- DEPOSITO ADICIONAL
-              dep_garantia numeric -- DEPOSITO DE GARANTIA
-            );
-            CREATE INDEX tablacruce_cedula ON space.tablacruce (cedula);");
-    return $rs;
-  }
-
   public function IniciarLote($arr, $archivo, $autor){
     ini_set('memory_limit', '1024M'); //Aumentar el limite de PHP
 
@@ -192,19 +177,12 @@ class KCargador extends CI_Model{
         -- AND grado.codigo IN( 10, 15)
         -- LIMIT 10
         ";
-
     $con = $this->DBSpace->consultar($sConsulta);
-    
-    
-    //echo $sConsulta;
-    //print_r($arr);
     $this->asignarBeneficiario($con->rs, $arr['id'], $arr['fecha'], $archivo, $autor);
-
-    //$this->evaluarLotesLinuxComando($archivo,  $arr->sit);//Para Generar archivo csv 04102017
   }
 
-  public function asignarBeneficiario($obj, $id, $fecha, $archivo, $autor){
 
+  public function asignarBeneficiario($obj, $id, $fecha, $archivo, $autor){
     $this->load->model('kernel/KCalculoLote');
     $this->load->model('kernel/KDirectiva');
     $this->load->model('kernel/KNomina');
@@ -215,9 +193,16 @@ class KCargador extends CI_Model{
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_sqlCVS = fopen("tmp/" . $archivo . "-SQL.sql","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
-    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, banc, nume, tipo, situ, esta, usua, neto ) VALUES ";
+    $file_medida = fopen("tmp/" . $archivo . "-MJ.sql","a") or die("Problemas");
+
     $linea = 'CEDULA;APELLIDOS;NOMBRES;TIPO;BANCO;NUMERO CUENTA;FECHA INGRESO;FECHA ASCENSO;FECHA RETIRO;COMPONENTE;GRADO;GRADO DESC.;TIEMPO DE SERV.;';
     $linea .= 'ANTIGUEDAD;NUM. HIJOS;PORCENTAJE;';
+    
+    
+
+    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, banc, nume, tipo, situ, esta, usua, neto, base ) VALUES ";
+    $sqlMJ = "INSERT INTO space.medidajudicial_detalle ( cedu, cben, bene, caut, naut, inst, tcue, ncue, pare, crea, usua, esta, mont ) VALUES ";
+    
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
     $medida_str = "";
@@ -240,8 +225,8 @@ class KCargador extends CI_Model{
     fputs($file_log,"\n");//Salto de linea
 
 
-    fputs($file_sqlCVS, $sqlCVS);//Para Generar archivo csv 04102017
-    fputs($file_sqlCVS,"\n");//Salto de linea
+    fputs($file_sqlCVS, $sqlCVS);//INSERT SPACE.PAGOS
+    fputs($file_medida, $sqlMJ);//INSERT SPACE.MEDIDAJUDICIALES    
 
     //print_r($Directivas);
     $coma = "";
@@ -250,18 +235,25 @@ class KCargador extends CI_Model{
       $this->KCalculoLote->Instanciar($Bnf, $Directivas);
       $linea = $this->generarConPatrones($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v, $this->KNomina->ID);
       $this->Cantidad++;
+      $this->CantidadMedida++;
       if($linea["csv"] != ""){
-        fputs($file,$linea["csv"]);
+        fputs($file,$linea["csv"]); //Generacion CSV -> EXCEL
         fputs($file,"\n");
         /** INSERT PARA POSTGRES CIERRE DE LA NOMINA  */
         if ( $this->Cantidad > 1 ){
           $coma = ",";
         }
-        $lineaSQL = $coma . $linea["sql"]; 
+        if( $this->CantidadMedida > 1){
+          $this->ComaMedida = ",";
+        }
+        $lineaSQL = $coma . $linea["sql"]; //INSERT PARA SPACE.PAGOS
         fputs( $file_sqlCVS, $lineaSQL);
 
-        
-        fputs($file_log, $linea["log"]);
+         
+        fputs( $file_medida, $this->SQLMedidaJudicial); //INSERT PARA SPACE.MEDIDAJUDICIAL_DETALLES
+        $this->SQLMedidaJudicial = "";
+
+        fputs($file_log, $linea["log"]); //CREACION DE INCIDENCIAS
         fputs($file_log, "\n");
       }
     }
@@ -346,7 +338,7 @@ class KCargador extends CI_Model{
         
         $medida = $this->calcularMedidaJudicial($this->KMedidaJudicial,  $Bnf);
         $cajaahorro = $this->obtenerCajaAhorro( $Bnf );
-
+        
         //Aplicar conceptos de Asignación
         for ($i= 0; $i < $cant; $i++){
           $rs = $map[$i]['codigo'];
@@ -419,11 +411,14 @@ class KCargador extends CI_Model{
         $this->KRecibo->conceptos = $recibo_de_pago;        
         $this->KRecibo->asignaciones = $asignacion;
         $this->KRecibo->deducciones = $deduccion;
-
+        //Insert a Postgres
+        $base = $Bnf->porcentaje . "|" . $Bnf->componente_id . "|" . $Bnf->grado_codigo . "|" . $Bnf->grado_nombre; 
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
         json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
-        "','" . $Bnf->tipo . "','" . $Bnf->situacion . "',201,'SSSIFANB'," . $neto . ")";
+        "','" . $Bnf->tipo . "','" . $Bnf->situacion . "'," . $Bnf->estatus_activo . 
+        ",'SSSIFANB'," . $neto . ", '" . $base . "')";
+
       }else{      //En el caso que exista el recuerdo en la memoria   
         $medida = $this->calcularMedidaJudicial($this->KMedidaJudicial,  $Bnf);
         $cajaahorro = $this->obtenerCajaAhorro(  $Bnf );
@@ -449,8 +444,9 @@ class KCargador extends CI_Model{
               $this->asignarPresupuesto($result, $cajaahorro, '98', $abreviatura, $NConcepto[$result]['part']); 
             }else{
               $monto_aux = $NConcepto[$result]['mt'];
-              if($monto_aux != 0)$recibo_de_pago[] = array('desc' =>  $rs, 'tipo' => $NConcepto[$result]['TIPO'],'mont' => $monto_aux);
-              $this->asignarPresupuesto($result, $monto_aux, $NConcepto[$result]['TIPO'], $NConcepto[$result]['ABV'], $NConcepto[$result]['part']);
+              $abreviatura_aux = $NConcepto[$result]['ABV'];
+              if($monto_aux != 0)$recibo_de_pago[] = array('desc' =>  abreviatura_aux, 'tipo' => $NConcepto[$result]['TIPO'],'mont' => $monto_aux);
+              $this->asignarPresupuesto($result, $monto_aux, $NConcepto[$result]['TIPO'], $abreviatura_aux, $NConcepto[$result]['part']);
             }
           }
         }        
@@ -468,11 +464,13 @@ class KCargador extends CI_Model{
         $this->KRecibo->conceptos = $recibo_de_pago;
         $this->KRecibo->asignaciones = $asignacion;
         $this->KRecibo->deducciones = $deduccion;
-
+        //Insert a Postgres
+        $base = $Bnf->porcentaje . "|" . $Bnf->componente_id . "|" . $Bnf->grado_codigo . "|" . $Bnf->grado_nombre;
         $registro = "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
         "','" . $Bnf->apellidos . " " . $Bnf->nombres . "','" . 
         json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
-        "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', 201, 'SSSIFANB'," . $neto . ")";
+        "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', " . $Bnf->estatus_activo . 
+        ", 'SSSIFANB'," . $neto . ", '" . $base . "')";
         
       }
 
@@ -481,8 +479,6 @@ class KCargador extends CI_Model{
       $this->Asignacion += $asignacion;
       $this->Deduccion += $deduccion;
       $this->Neto += $neto;
-      // echo ("<pre>");
-      // print_r(count($Perceptron->Neurona));
       $obj["csv"] = $linea;
       $obj["sql"] = $registro;
       $obj["log"] = $log;
@@ -499,14 +495,27 @@ class KCargador extends CI_Model{
     $cedula = "";
     if(isset($this->MedidaJudicial[$Bnf->cedula])){          
       $MJ = $this->MedidaJudicial[$Bnf->cedula];
-      
+      //( cedu, cben, bene, caut, naut, inst, tcue, ncue, pare, crea, usua, esta, mont ) VALUES ";
+
       $cantMJ = count($MJ);
       for($i = 0; $i < $cantMJ; $i++){
         $monto += $KMedida->Ejecutar($Bnf->pension, 1, $MJ[$i]['fnxm']);
         $nombre = $MJ[$i]['nomb'];
-        $cuenta = $MJ[$i]['ncue'];
+        $parentesco = $MJ[$i]['pare'];
+        $cbenef = $MJ[$i]['cben'];
+        $nbenef = $MJ[$i]['bene'];
+        
+        $cedula = $MJ[$i]['caut'];        
         $autorizado = $MJ[$i]['auto'];
-        $cedula = $MJ[$i]['caut'];            
+        $instituto = $MJ[$i]['auto'];
+        $tipobanco = $MJ[$i]['tcue'];
+        $cuenta = $MJ[$i]['ncue'];
+
+        $this->SQLMedidaJudicial .= $this->ComaMedida . "('" . $Bnf->cedula . "','" .
+        $cbenef . "','" . $nbenef . "','" . $cedula . "','" . $autorizado . "','" . $instituto . 
+        "','" . $tipobanco . "','" . $cuenta . "','" . $parentesco . 
+        "',Now(),'SSSIFAN',1," . $monto . ")";
+
       }   
       
     }
@@ -530,21 +539,25 @@ class KCargador extends CI_Model{
   private function asignarPresupuesto($rs, $mt, $tp, $ab, $part){
     if (isset($this->ResumenPresupuestario[$rs])){
       $mt_aux = $this->ResumenPresupuestario[$rs]['mnt'];
-      $this->ResumenPresupuestario[$rs] =  array( 
-        'mnt' => $mt_aux + $mt, 
-        'tp' => $tp, 
-        'abv' => $ab,
-        'estr' => '',
-        'part' => $part
-      );
+      if($mt_aux > 0){
+        $this->ResumenPresupuestario[$rs] =  array( 
+          'mnt' => $mt_aux + $mt, 
+          'tp' => $tp, 
+          'abv' => $ab,
+          'estr' => '',
+          'part' => $part
+        );
+      }
     }else{
-      $this->ResumenPresupuestario[$rs] = array( 
-        'mnt' => $mt, 
-        'tp' => $tp, 
-        'abv' => $ab,
-        'estr' => '',
-        'part' => $part
-      );
+      if($mt > 0){
+        $this->ResumenPresupuestario[$rs] = array( 
+          'mnt' => $mt, 
+          'tp' => $tp, 
+          'abv' => $ab,
+          'estr' => '',
+          'part' => $part
+        );
+      }
     }
   }
  
@@ -586,17 +599,17 @@ class KCargador extends CI_Model{
     }
 
     $r .= 'tmp/' . $archivo . '-SQL';
-    
-
-
     $comando = 'cd tmp/; time ./load.sh ' . $r . ' 2>&1';
-    //print_r($comando);
     exec($comando, $bash);
-    //print_r($bash);
+    $res[] = $bash;
+
+    $r .= 'tmp/' . $archivo . '-MJ';
+    $comando = 'cd tmp/; time ./load.sh ' . $r . ' 2>&1';
+    exec($comando, $bash);
+    $res[] = $bash;
 
     $sUpdate = 'UPDATE  space.nomina SET esta=4, llav = \'' . $llave . '\'  WHERE oid=' . $oid . ';';
     $rs = $this->DBSpace->consultar($sUpdate);
-
 
     $this->Resultado = array(
       'a' => $archivo,

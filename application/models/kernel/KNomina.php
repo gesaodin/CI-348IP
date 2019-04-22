@@ -66,7 +66,7 @@ class KNomina extends CI_Model{
   }
 
   public function Contar(){
-    $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario GROUP BY situacion";
+    $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario WHERE status_id != 202 GROUP BY situacion";
     $obj = $this->DBSpace->consultar($sConsulta);
     $contar = array();
     foreach($obj->rs as $c => $v ){
@@ -94,7 +94,8 @@ class KNomina extends CI_Model{
   public function ListarPagos(){
     
     $sConsulta = "select llav as firma, sum(mont) as monto, sum(asig) as asignacion, 
-    sum(dedu) as deduccion, sum(cant) as cantidad from space.nomina group by llav; ";
+    sum(dedu) as deduccion, sum(cant) as cantidad from     
+    space.nomina WHERE llav != '' group by llav; ";
    
     $obj = $this->DBSpace->consultar($sConsulta);
     $lst = array();
@@ -113,7 +114,7 @@ class KNomina extends CI_Model{
     GROUP BY  pg.banc
     ORDER BY pg.banc) AS mt
     LEFT JOIN space.banco bnc ON mt.banc=bnc.codi";
-   
+    
     $obj = $this->DBSpace->consultar($sConsulta);
     $lst = array();
     foreach($obj->rs as $c => $v ){
