@@ -274,6 +274,12 @@ class MBeneficiario extends CI_Model{
 	* @var string
 	*/
 	var $pension = 0.00;
+
+	/**
+	* @var string
+	*/
+	var $total_asignacion = 0.00;
+
 	/**
 	* @var string
 	*/

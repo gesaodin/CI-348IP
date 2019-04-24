@@ -66,14 +66,34 @@ class KNomina extends CI_Model{
   }
 
   public function Contar(){
+    $sConsulta = "SELECT count(*) as cantidad FROM familiar fam 
+      JOIN beneficiario bnf ON fam.titular=bnf.cedula 
+      WHERE bnf.status_id != 202";
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $sobrevive = 0;
+    foreach($obj->rs as $c => $v ){
+      $sobrevive = $v->cantidad;
+    }
+
+
     $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario WHERE status_id != 202 GROUP BY situacion";
     $obj = $this->DBSpace->consultar($sConsulta);
     $contar = array();
     foreach($obj->rs as $c => $v ){
-      $contar[] = array(
-              "situacion" => $v->situacion, 
-              "cantidad" => $v->cantidad);
+      if($v->situacion != "FCP"){
+        $contar[] = array(
+                "situacion" => $v->situacion, 
+                "cantidad" => $v->cantidad);
+      }else{
+        $contar[] = array(
+          "situacion" => $v->situacion, 
+          "cantidad" => $sobrevive);
+      }
     }
+
+
+
+    
     return $contar;
   }
 

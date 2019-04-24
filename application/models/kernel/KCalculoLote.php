@@ -110,7 +110,7 @@ class KCalculoLote extends CI_Model{
     $total_primas = 0;
     $sueldo_mensual = $sueldo_base;
     $pension = $sueldo_base;
-
+    $this->Beneficiario->total_asignacion = $sueldo_base;
     if( $this->Beneficiario->situacion != "PG" ){
       //Establecer Primras
       foreach ($lst as $c => $v) {
@@ -131,13 +131,14 @@ class KCalculoLote extends CI_Model{
       }
       //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
       $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
-      $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;      
+      $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
+      $this->Beneficiario->total_asignacion =  $sueldo_basico +  $total_primas;
+
       $sueldo_mensual = $pension;
     }
 
     $this->Beneficiario->pension = $pension;
     $this->Beneficiario->sueldo_mensual = $pension;
-
     $this->Beneficiario->Concepto["sueldo_mensual"] = array(
       'mt' => round($sueldo_mensual,2), 
       'ABV' =>  "PENSION MILITAR", 
