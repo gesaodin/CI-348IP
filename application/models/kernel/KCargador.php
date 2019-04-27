@@ -90,6 +90,51 @@ class KCargador extends CI_Model{
   */
   var $Cantidad = 0;
 
+   /**
+  * @var double
+  */
+  var $CantidadSobreviviente = 0;
+
+  /**
+  * @var double
+  */
+  var $Registros = 0;
+
+  /**
+  * @var double
+  */
+  var $Anomalia = 0;
+
+    /**
+  * @var double
+  */
+  var $SinPagos = 0;
+
+    /**
+  * @var double
+  */
+  var $AnomaliaSobreviviente = 0;
+
+  /**
+  * @var double
+  */
+  var $TotalRegistros = 0;
+
+  /**
+  * @var double
+  */
+  var $Paralizados = 0;
+
+    /**
+  * @var double
+  */
+  var $ParalizadosSobrevivientes = 0;
+
+    /**
+  * @var double
+  */
+  var $OperarBeneficiarios = 0;
+
   /**
   * @var double
   */
@@ -110,10 +155,15 @@ class KCargador extends CI_Model{
    */
   var $_MapWNomina;
 
+
+
     /**
    * @var Funcion para reflexionar
    */
   var $functionRefelxion;
+
+
+
 
   /**
    * @var Fallecidos Con Pension (Sobrevivientes)
@@ -154,7 +204,7 @@ class KCargador extends CI_Model{
    * @return  void
    */
   public function IniciarLote($arr, $archivo, $autor){
-    ini_set('memory_limit', '1024M'); //Aumentar el limite de PHP
+    ini_set('memory_limit', '2024M'); //Aumentar el limite de PHP
 
     $this->load->model('comun/Dbpace');
     $this->load->model('kernel/KSensor');
@@ -180,13 +230,15 @@ class KCargador extends CI_Model{
         WHERE 
         bnf.situacion = '" . $this->_MapWNomina["tipo"] . "'
         AND
+        bnf.status_id = 201
         -- bnf.cedula='11845656' 
         -- AND
-        grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 8480, 5320) 
+        -- grado.codigo NOT IN(8450, 8510, 8500, 8460, 8470, 8480, 5320) 
         ORDER BY grado.codigo
         -- AND grado.codigo IN( 10, 15)
         -- LIMIT 10
         ";
+    //echo $sConsulta;
     $con = $this->DBSpace->consultar($sConsulta);
     $this->functionRefelxion = "generarConPatrones";
     if($this->_MapWNomina["tipo"] == "FCP"){
@@ -207,7 +259,7 @@ class KCargador extends CI_Model{
 
     $file = fopen("tmp/" . $archivo . ".csv","a") or die("Problemas");//Para Generar archivo csv 04102017
     $file_sqlCVS = fopen("tmp/" . $archivo . "-SQL.sql","a") or die("Problemas");//Para Generar archivo csv 04102017
-    $file_log = fopen("tmp/" . $archivo . ".log","a") or die("Problemas");
+    $file_log = fopen("tmp/" . $archivo . "-ERR.csv","a") or die("Problemas");
     $file_medida = fopen("tmp/" . $archivo . "-MJ.sql","a") or die("Problemas");
     $file_cajas = fopen("tmp/" . $archivo . "-CA.sql","a") or die("Problemas");
 
@@ -242,8 +294,8 @@ class KCargador extends CI_Model{
     fputs($file,$linea);//Para Generar archivo csv 04102017
     fputs($file,"\n");//Salto de linea
 
-    fputs($file_log, "  REPORTE CON LAS INCIDENCIAS EN LA NOMINA EN GENERAL ");//Para Generar archivo de log
-    fputs($file_log,"\n");//Salto de linea
+    fputs($file_log, $linea . ";DESCRIPCION");//Para Generar archivo de log
+    fputs($file_log, "\n");//Salto de linea
 
 
     fputs($file_sqlCVS, $sqlCVS);//INSERT SPACE.PAGOS
@@ -256,8 +308,14 @@ class KCargador extends CI_Model{
       $Bnf = new $this->MBeneficiario;
       $this->KCalculoLote->Instanciar($Bnf, $Directivas);
       $linea = $this->$funcion($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v, $this->KNomina->ID);
+      
+      if( $Bnf->estatus_activo != '201' ){
+        $this->Paralizados++;
+      }
+
       $this->Cantidad++;
       $this->CantidadMedida++;
+      
       if($linea["csv"] != ""){
         if($this->_MapWNomina['tipo'] == "FCP"){
           fwrite($file,$linea["csv"]); //Generacion CSV -> EXCEL
@@ -274,26 +332,47 @@ class KCargador extends CI_Model{
           $this->ComaMedida = ",";
         }
         $lineaSQL = $coma . $linea["sql"]; //INSERT PARA SPACE.PAGOS
-        fputs( $file_sqlCVS, $lineaSQL);
+        fputs( $file_sqlCVS, $lineaSQL);      
 
-         
         fputs( $file_medida, $this->SQLMedidaJudicial); //INSERT PARA SPACE.MEDIDAJUDICIAL_DETALLES
         $this->SQLMedidaJudicial = "";
 
-        fputs($file_log, $linea["log"]); //CREACION DE INCIDENCIAS
+        
+       
+        
+      }else{
+        if($linea["log"] != "" && $this->_MapWNomina['tipo'] == "FCP"){
+          //$lin = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . ';CON FAMILIARES EN CERO' . PHP_EOL;
+          //fputs($file_log, $lin); //CREACION DE INCIDENCIAS
+          fputs($file_log, $linea["log"]); //CREACION DE INCIDENCIAS
+        }else{
+          //$lin = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . PHP_EOL;
+          fputs($file_log, $lin); //CREACION DE INCIDENCIAS
+        }      
+      }
+      if ($Bnf->grado_codigo == 0){
+        $linea = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres ;
+        fputs($file_log, $linea); //CREACION DE INCIDENCIAS
         fputs($file_log, "\n");
       }
+
     }
     
     //echo "Sueldo Base Total: " . $this->Neto;
     $this->OidNomina = $this->KNomina->ID;
     $this->KNomina->Nombre = $archivo;
     $this->KNomina->Monto = $this->Neto;
-    $this->KNomina->Asignacion = $this->Asignacion;
     $this->KNomina->Tipo = $this->_MapWNomina["tipo"];
     $this->KNomina->Estatus = 1;
+    $this->KNomina->Asignacion = $this->Asignacion;
     $this->KNomina->Deduccion = $this->Deduccion;
     $this->KNomina->Cantidad = $this->Cantidad;
+    if($this->_MapWNomina['tipo'] == "FCP"){
+      $this->KNomina->Cantidad = $this->OperarBeneficiarios;
+      $this->Cantidad = $this->OperarBeneficiarios;
+      $this->Anomalia = $this->AnomaliaSobreviviente;
+      $this->Paralizados = $this->ParalizadosSobrevivientes;
+    }
     $this->KNomina->Actualizar();
     $this->KNomina->RegistrarDetalle($this->OidNomina , $this->ResumenPresupuestario);
     fclose($file);//Para Generar archivo csv 04102017
@@ -424,13 +503,14 @@ class KCargador extends CI_Model{
         
         if ($Bnf->sueldo_base > 0 && $Bnf->porcentaje > 0 ){
           $linea = $Bnf->cedula . ';' . trim($Bnf->apellidos) . ';' . trim($Bnf->nombres) . 
-           ';' .  $Bnf->tipo . ";" . $Bnf->banco . ";" . $Bnf->numero_cuenta . 
+           ';' .  $Bnf->tipo . ";'" . $Bnf->banco . ";'" . $Bnf->numero_cuenta . 
            ";" . $this->generarLinea($segmentoincial) . $medida_str . 
            $cajaahorro_str . $asignacion . ';' . $deduccion . ';'  . $neto;
         
         
         }else{
           $log = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . ';';
+         
         }
 
         
@@ -480,11 +560,12 @@ class KCargador extends CI_Model{
         $neto = $asignacion - $deduccion;
         if($Perceptron->Neurona[$patron]["SUELDOBASE"] > 0   && $Perceptron->Neurona[$patron]["PORCENTAJE"] > 0  ){
           $linea = $Bnf->cedula . ';' . trim($Bnf->apellidos) . ';' . trim($Bnf->nombres) . 
-          ';' .  $Bnf->tipo . ";" . $Bnf->banco . ";" . $Bnf->numero_cuenta . 
-          ';' . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
+          ';' .  $Bnf->tipo . ";\"" . $Bnf->banco . "\";\"" . $Bnf->numero_cuenta . 
+          "\";" . $this->generarLineaMemoria($Perceptron->Neurona[$patron]) .
           $medida_str . $cajaahorro_str . $asignacion . ';' . $deduccion . ';' . $neto;
         }else{
           $log = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . ';';
+        
         }
         
         $this->KRecibo->conceptos = $recibo_de_pago;
@@ -499,7 +580,6 @@ class KCargador extends CI_Model{
         ", 'SSSIFANB'," . $neto . ", '" . $base . "')";
         
       }
-
 
       $this->SSueldoBase += $Bnf->sueldo_base;
       $this->Asignacion += $asignacion;
@@ -693,9 +773,8 @@ class KCargador extends CI_Model{
     $linea = '';
     $registro = '';
     $log = '';
-    $patron = md5($v->fecha_ingreso.$v->f_retiro.$v->n_hijos.$v->st_no_ascenso.$v->componente_id.
-      $v->codigo.$v->f_ult_ascenso.$v->st_profesion.
-      $v->anio_reconocido.$v->mes_reconocido.$v->dia_reconocido.$v->porcentaje);
+    $anomalia = 0;
+    $this->CantidadSobreviviente++;
 
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
@@ -705,7 +784,7 @@ class KCargador extends CI_Model{
     // if(!isset($Perceptron->Neurona[$patron])){
     $CalculoLote->Ejecutar();
     $segmentoincial = $Bnf->cedula . ';' . $Bnf->apellidos . ';' . $Bnf->nombres . 
-    ';' . $Bnf->grado_nombre . ';' . $Bnf->total_asignacion . ';' . $Bnf->porcentaje . ';' . $Bnf->pension ;
+    ';' . $Bnf->grado_nombre . ';' . round($Bnf->total_asignacion,2) . ';' . $Bnf->porcentaje . ';' . round($Bnf->pension,2) ;
     $asignaciont = 0;
     $deducciont = 0;
     $netot = 0;
@@ -718,48 +797,79 @@ class KCargador extends CI_Model{
         $medida_str = "";
         $cajaahorro_str = "";
         
-        $sueldo_familiar = ( $Bnf->pension * $PS[$i]['porcentaje'] )/100;
-        $asignaciont += $sueldo_familiar;
-        $deduccionp = ($sueldo_familiar * 6.5) / 100;
-        $deducciont += $deduccionp;
-        $neto = $sueldo_familiar - $deduccionp;
-        $netot += $neto;
-        $linea .= $segmentoincial . 
-        ';' . $PS[$i]['cedula'] . ';' . $PS[$i]['apellidos'] . ';' . $PS[$i]['nombres'] . 
-        ';' . $PS[$i]['parentesco'] . ';' . $PS[$i]['tipo'] . ";" . $PS[$i]['banco'] . ";" . $PS[$i]['numero'] . 
-        ';' . $Bnf->pension . ';' . $PS[$i]['porcentaje'] . ";" . $sueldo_familiar . ';' . $deduccionp . ';' . $neto . PHP_EOL;
+        $asignacionp = (round($Bnf->pension,2) * round($PS[$i]['porcentaje'],2) )/100 ;
+        $deduccionp = round(($asignacionp * 6.5) / 100, 2);
+        $neto = $asignacionp - $deduccionp;
+
+        
+        
+        if( $PS[$i]['estatus'] == 201  ){
+          if ($neto > 0 ){            
+            $linea .= $segmentoincial . 
+            ';' . $PS[$i]['cedula'] . ';' . $PS[$i]['apellidos'] . ';' . $PS[$i]['nombres'] . 
+            ';' . $PS[$i]['parentesco'] . ';' . $PS[$i]['tipo'] . ";'" . $PS[$i]['banco'] . ";'" . $PS[$i]['numero'] . 
+            ';' . round($Bnf->pension,2) . ';' . round($PS[$i]['porcentaje'],2) . 
+            ";" . round($asignacionp,2) . ';' . round($deduccionp,2) . ';' . round($neto,2) . PHP_EOL;
+
+            $asignaciont += $asignacionp;
+            $deducciont += $deduccionp;
+            $netot +=  $asignacionp - $deduccionp;
+            $this->OperarBeneficiarios++;
+
+          }else{
+            $this->SinPagos++;
+            $log .= $segmentoincial . 
+            ';' . $PS[$i]['cedula'] . ';' . $PS[$i]['apellidos'] . ';' . $PS[$i]['nombres'] . 
+            ';' . $PS[$i]['parentesco'] . ';' . $PS[$i]['tipo'] . ";'" . $PS[$i]['banco'] . ";'" . $PS[$i]['numero'] . 
+            ';' . round($Bnf->pension,2) . ';' . round($PS[$i]['porcentaje'],2) . 
+            ';0;0;0;Sin monto a cobrar' . PHP_EOL;            
+          }
+          
+        }else{
+          
+          $log .= $segmentoincial . 
+          ';' . $PS[$i]['cedula'] . ';' . $PS[$i]['apellidos'] . ';' . $PS[$i]['nombres'] . 
+          ';' . $PS[$i]['parentesco'] . ';' . $PS[$i]['tipo'] . ";'" . $PS[$i]['banco'] . ";'" . $PS[$i]['numero'] . 
+          ';' . round($Bnf->pension,2) . ';' . round($PS[$i]['porcentaje'],2) . 
+          ";" . round($asignacionp,2) . ';' . round($deduccionp,2) . ';' . round($neto,2) . ';Paralizado (' . $PS[$i]['estatus'] . 
+          ')' . PHP_EOL;
+
+          $this->ParalizadosSobrevivientes++;
+        }
         $i++;
+        
       }
-      // $linea = 'CEDULA;APELLIDOS;NOMBRES;GRADO DESC.;ASIGNACION;PORCENTAJE;PENSION;';
-      // $linea .= 'CEDULA;APELLIDOS;NOMBRES;PARENTESCO;TIPO;BANCO;NUMERO CUENTA;PENSION MIL;';
-      // $linea .= 'PORCENTAJE;ASIGNACION;DEDUCCION;NETO';
+  
       
+    }else{
+      $log .=  $Bnf->cedula . ";Militar fallecido sin familiares " . PHP_EOL;
+      //$this->ParalizadosSobrevivientes++;
     }
     
-    $this->asignarPresupuesto( "CIF0001", $deducciont , '0', 'FONDO CIS 6.5%', '40700000000');
+    $this->asignarPresupuesto( "CIF0001", $asignaciont , '0', 'FONDO CIS 6.5%', '40700000000');
     $this->asignarPresupuesto( "PSV0001", $deducciont , '0', 'PENSION MILITAR', '40700000000');
 
     // }else{ //Recordando calculos
 
     // }
-    $this->Cantidad += $i;
-    $this->SSueldoBase += $Bnf->pension;
+    //$this->Cantidad += $i;
+    //$this->SSueldoBase += $Bnf->pension;
     $this->Asignacion += $asignaciont;
     $this->Deduccion += $deducciont;
     $this->Neto += $netot;
+
     $obj["csv"] = $linea;
     $obj["sql"] = "";
-    $obj["log"] = "";
+    $obj["log"] = $log;
     return $obj;
 
 }
 
   public function cargarFamiliaresFCP(){
     $sConsulta = "SELECT bnf.cedula AS cedu, fam.cedula, fam.nombres, fam.apellidos, 
-    fam.parentesco, fam.autorizado, 
-    fam.tipo, fam.banco, fam.numero, fam.porcentaje, fam.motivo
-    FROM beneficiario bnf  JOIN familiar fam ON bnf.cedula=fam.titular 
-      WHERE bnf.status_id=201";
+      fam.parentesco, fam.autorizado, fam.tipo, fam.banco, fam.numero,
+      fam.porcentaje, fam.motivo, fam.estatus
+    FROM beneficiario bnf  JOIN familiar fam ON bnf.cedula=fam.titular";
     $obj = $this->DBSpace->consultar($sConsulta);
     foreach($obj->rs as $c => $v ){      
         $this->FCP[$v->cedu][] = array(
@@ -769,6 +879,7 @@ class KCargador extends CI_Model{
           "parentesco" => $v->parentesco,
           "autorizado" => $v->autorizado,
           "tipo" => $v->tipo,
+          "estatus" => $v->estatus,
           "banco" => $v->banco,
           "numero" => $v->numero,
           "porcentaje" => $v->porcentaje,
@@ -821,6 +932,42 @@ class KCargador extends CI_Model{
 
 
 
+/**
+   *  Generar archivos para procesos de lotes (Activos)
+   *
+   *  Creación de tablas para los esquemas space
+   *  ---------------------------------------------
+   *  INICIANDO PROCESOS POR LOTES
+   *  ---------------------------------------------
+   *
+   * @return  void
+   */
+  public function IniciarIndividual($arr){
+    
+
+    $this->load->model('comun/Dbpace');
+    $this->load->model('fisico/MBeneficiario');
+    
+     
+    $sConsulta = "
+      SELECT
+        bnf.nombres, bnf.apellidos,
+        bnf.cedula, fecha_ingreso,f_ult_ascenso, grado.codigo,grado.nombre as gnombre,
+        bnf.componente_id, n_hijos, st_no_ascenso, bnf.status_id,
+        st_profesion, monto_especial, anio_reconocido, mes_reconocido,dia_reconocido,bnf.status_id as status_id, 
+        bnf.porcentaje, f_retiro, bnf.tipo, bnf.banco, bnf.numero_cuenta, bnf.situacion
+        FROM
+          beneficiario AS bnf
+        JOIN
+          grado ON bnf.grado_id=grado.codigo AND bnf.componente_id= grado.componente_id
+        WHERE 
+        bnf.cedula='" . $arr['id'] . "' 
+        ";
+    $con = $this->DBSpace->consultar($sConsulta);    
+    return $this->asignarBeneficiarioIndividual($con->rs, $arr['id']);
+  }
+
+
  /**
   * Generar Codigos por Patrones en la Red de Inteligencia Pensionados Sobrevivientes
   *
@@ -833,20 +980,21 @@ class KCargador extends CI_Model{
   */
 
 
-  public function asignarBeneficiarioIndividual($obj, $id, $fecha, $archivo, $autor){
+  public function asignarBeneficiarioIndividual($obj, $id){
     $this->load->model('kernel/KCalculoLote');
     $this->load->model('kernel/KDirectiva');
     $this->load->model('kernel/KNomina');
-    $Directivas = $this->KDirectiva->Cargar($id); //Directivas
-
+    $fecha = date('Y-m-d');
+    $Directivas = $this->KDirectiva->Cargar($id, $fecha); //Directivas
+   
     foreach ($obj as $k => $v) {
       $Bnf = new $this->MBeneficiario;
       $this->KCalculoLote->Instanciar($Bnf, $Directivas);
-      $linea = $this->generarCalculo($Bnf,  $this->KCalculoLote, $this->KPerceptron, $fecha, $Directivas, $v, $this->KNomina->ID);
+      $lst = $this->generarCalculoIndividual($Bnf,  $this->KCalculoLote, $fecha, $Directivas, $v);
     }
       
     
-    return true;
+    return $Bnf;
   }
 
  
@@ -861,7 +1009,7 @@ class KCargador extends CI_Model{
   * @param object
   * @return void
   */
-  private function generarConPatrones(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, KPerceptron &$Perceptron, $fecha, $Directivas, $v, $sqlID){
+  private function generarCalculoIndividual(MBeneficiario &$Bnf, KCalculoLote &$CalculoLote, $fecha, $Directivas, $v){
     $Bnf->cedula = $v->cedula;
     $Bnf->deposito_banco = ""; //$v->cap_banco; //Individual de la Red
     $Bnf->apellidos = $v->apellidos; //Individual del Objeto
@@ -890,8 +1038,9 @@ class KCargador extends CI_Model{
     $Bnf->mes_reconocido = $v->mes_reconocido;
     $Bnf->dia_reconocido = $v->dia_reconocido;
     $Bnf->estatus_activo = $v->status_id;
-    $asignacion = 0;
-    $deduccion = 0;
+    
+    $CalculoLote->Ejecutar();
+    return $Bnf;
 
   }
 

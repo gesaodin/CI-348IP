@@ -154,11 +154,6 @@ class WServer extends REST_Controller{
         return $v;
     }
 
-    public function book_get($id,$o){
-        $this->response([
-			'returned from delete:' => $o,
-		]);
-    }
 
     public function index_options($id){
         $this->load->model("fisico/MBeneficiario");
@@ -186,6 +181,14 @@ class WServer extends REST_Controller{
         }
         $rs = (array)$this->MBeneficiario;
         $this->response($rs);       
+    }
+
+    public function calculo_get($id){
+        $this->load->model('kernel/KCargador');
+        
+        $data['id'] = $id; //Directiva
+        $rs = $this->KCargador->IniciarIndividual($data);
+        $this->response($rs->Concepto); 
     }
 
 	public function directiva_get(){
@@ -220,9 +223,13 @@ class WServer extends REST_Controller{
             'neto' => number_format($neto, 2, ',','.'),
             'asignacion' => number_format($asig, 2, ',','.'),
             'deduccion' => number_format($dedu, 2, ',','.'),
-            'registros' => $this->KCargador->Cantidad,
+            'registros' => $this->KCargador->Paralizados + $this->KCargador->Anomalia + $this->KCargador->Cantidad,
             'md5' => $firma,
-            'paralizados' => 0,
+            'paralizados' => $this->KCargador->Paralizados,
+            'incidencias' => $this->KCargador->Anomalia,
+            'sinpagos' => $this->KCargador->SinPagos,
+            'operados' =>  $this->KCargador->Cantidad,
+            'total' => $this->KCargador->SinPagos + $this->KCargador->Cantidad,
             'desde' => $this->post("fechainicio"),
             'hasta' => $this->post("fechafin"),
             'archivo' => 'tmp/' . $firma . '.csv',

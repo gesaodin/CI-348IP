@@ -68,7 +68,7 @@ class KNomina extends CI_Model{
   public function Contar(){
     $sConsulta = "SELECT count(*) as cantidad FROM familiar fam 
       JOIN beneficiario bnf ON fam.titular=bnf.cedula 
-      WHERE bnf.status_id != 202";
+      WHERE fam.estatus = 201 AND bnf.grado_id != 0";
     $obj = $this->DBSpace->consultar($sConsulta);
     $sobrevive = 0;
     foreach($obj->rs as $c => $v ){
@@ -76,7 +76,9 @@ class KNomina extends CI_Model{
     }
 
 
-    $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario WHERE status_id != 202 GROUP BY situacion";
+    $sConsulta = "SELECT situacion, count(situacion) AS cantidad FROM beneficiario WHERE
+    grado_id != 0 AND
+    status_id = 201 GROUP BY situacion";
     $obj = $this->DBSpace->consultar($sConsulta);
     $contar = array();
     foreach($obj->rs as $c => $v ){

@@ -62,7 +62,13 @@ class KCalculoLote extends CI_Model{
       if($this->Beneficiario->antiguedad_grado < 0){
         $cod = $this->Beneficiario->grado_codigo . "0";
       }
-      $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
+
+      if ( isset( $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'] )){
+        $sueldo_maximo = $sueldo[$this->Beneficiario->grado_codigo.'M']['sb'];
+      }else{
+        $sueldo_maximo = 0;
+      }
+      $this->Beneficiario->sueldo_base = isset($sueldo[$cod])? $sueldo[$cod]['sb']: $sueldo_maximo;
     }else{
       $this->Beneficiario->sueldo_base = $this->Directiva['salario'];
     }
@@ -75,8 +81,6 @@ class KCalculoLote extends CI_Model{
       'TIPO' => 97,
       'part' => '40701010101'
     );
-    // echo ("<pre>");
-    // print_r($this->Directiva);
     $this->OperarCalculos();
     $this->OperarConceptos();
     $this->SueldoMensual();
@@ -89,76 +93,130 @@ class KCalculoLote extends CI_Model{
 
 
   function OperarCalculos(){
-    $lst =  $this->Directiva['sb'][$this->Beneficiario->grado_codigo.'M']['mt'];
 
-    $valor = 0;
-    $this->Beneficiario->monto_total_prima = 0;
-    $automatico = 0;
-    $grado = $this->Beneficiario->grado_codigo;
-    $componente = $this->Beneficiario->componente_id;
-    $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
-    $unidad_tributaria =  $this->Directiva['ut'];
-    $sueldo_base = $this->Beneficiario->sueldo_base;
-    $sueldo_basico = $this->Beneficiario->sueldo_base;
-    $sueldo_minimo = $this->Directiva['salario'];
-    $unidad_tributaria = $this->Directiva['ut'];
-    $porcentaje_pension = $this->Beneficiario->porcentaje;
-    $no_ascenso = $this->Beneficiario->no_ascenso;
-    $numero_hijos = $this->Beneficiario->numero_hijos;
-    $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;
-    $porcentaje_profesionalizacion = $this->Beneficiario->prima_profesionalizacion_mt; 
-    $total_primas = 0;
-    $sueldo_mensual = $sueldo_base;
-    $pension = $sueldo_base;
-    $this->Beneficiario->total_asignacion = $sueldo_base;
-    if( $this->Beneficiario->situacion != "PG" ){
-      //Establecer Primras
-      foreach ($lst as $c => $v) {
-        $monto_nominal = $v;
-        $rs =  $this->Directiva['fnx'][$c]['rs']; // Como se llama la variable
-        $rs_mt =  $this->Directiva['fnx'][$c]['rs'] . '_mt';
-        $fnx =  $this->Directiva['fnx'][$c]['fn'];
+    if ( isset ( $this->Directiva['sb'][$this->Beneficiario->grado_codigo.'M']['mt']) ){
+      $lst =  $this->Directiva['sb'][$this->Beneficiario->grado_codigo.'M']['mt'];
+   
+      
+
+      $valor = 0;
+      $this->Beneficiario->monto_total_prima = 0;
+      $automatico = 0;
+      $grado = $this->Beneficiario->grado_codigo;
+      $componente = $this->Beneficiario->componente_id;
+      $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
+      $sueldo_base = $this->Beneficiario->sueldo_base;
+      $sueldo_basico = $this->Beneficiario->sueldo_base;
+      $sueldo_minimo = $this->Directiva['salario'];
+      $unidad_tributaria = $this->Directiva['ut'];
+      $porcentaje_pension = $this->Beneficiario->porcentaje;
+      $no_ascenso = $this->Beneficiario->no_ascenso;
+      $numero_hijos = $this->Beneficiario->numero_hijos;
+      $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;
+      $porcentaje_profesionalizacion = $this->Beneficiario->prima_profesionalizacion_mt; 
+      $total_primas = 0;
+      $sueldo_mensual = $sueldo_base;
+      $pension = $sueldo_base;
+      $this->Beneficiario->total_asignacion = $sueldo_base;
+      if( $this->Beneficiario->situacion != "PG" ){
+        //Establecer Primras
+        foreach ($lst as $c => $v) {
+          $monto_nominal = $v;
+          $rs =  $this->Directiva['fnx'][$c]['rs']; // Como se llama la variable
+          $rs_mt =  $this->Directiva['fnx'][$c]['rs'] . '_mt';
+          $fnx =  $this->Directiva['fnx'][$c]['fn'];
+          eval('$valor = ' . $fnx);
+          $this->Beneficiario->$rs = round($valor,2);
+          $this->Beneficiario->$rs_mt = $monto_nominal;
+          $this->Beneficiario->monto_total_prima += $this->Beneficiario->$rs;
+          $this->Beneficiario->Concepto[$rs] = array(
+            'mt' => round($valor,2), 
+            'ABV' =>  $rs, 
+            'TIPO' => 97,
+            'part' => '40701010101'
+          );
+        }
+        //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
+        $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
+        $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
+        $this->Beneficiario->total_asignacion =  $sueldo_basico +  $total_primas;
+
+        $sueldo_mensual = $pension;
+      }
+
+      $this->Beneficiario->pension = $pension;
+      $this->Beneficiario->sueldo_mensual = $pension;
+      $this->Beneficiario->Concepto["sueldo_mensual"] = array(
+        'mt' => round($sueldo_mensual,2), 
+        'ABV' =>  "PENSION MILITAR", 
+        'TIPO' => 1,
+        'part' => '40701010101'
+      );
+      //Formular Conceptos
+      foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
+        $fnx = $obj['fn'];
+        $rs = $obj['rs'];     
         eval('$valor = ' . $fnx);
-        $this->Beneficiario->$rs = round($valor,2);
-        $this->Beneficiario->$rs_mt = $monto_nominal;
-        $this->Beneficiario->monto_total_prima += $this->Beneficiario->$rs;
         $this->Beneficiario->Concepto[$rs] = array(
           'mt' => round($valor,2), 
-          'ABV' =>  $rs, 
-          'TIPO' => 97,
-          'part' => '40701010101'
+          'ABV' =>  $obj['abv'], 
+          'TIPO' => $obj['tipo'],
+          'part' => $obj['part']
         );
-      }
-      //$this->Beneficiario->Concepto[$rs] =  array('mt' => round($prima_profesionalizacion_mt,2), 'ABV' =>  "prima_profesionalizacion", 'TIPO' => 1 );
-      $total_primas = $this->Beneficiario->monto_total_prima + $prima_profesionalizacion_mt;
-      $pension = (( $sueldo_basico +  $total_primas ) * $porcentaje_pension  ) / 100;
-      $this->Beneficiario->total_asignacion =  $sueldo_basico +  $total_primas;
-
-      $sueldo_mensual = $pension;
+        $valor = 0;
+      }  
     }
+    
+  }
 
-    $this->Beneficiario->pension = $pension;
-    $this->Beneficiario->sueldo_mensual = $pension;
-    $this->Beneficiario->Concepto["sueldo_mensual"] = array(
-      'mt' => round($sueldo_mensual,2), 
-      'ABV' =>  "PENSION MILITAR", 
-      'TIPO' => 1,
-      'part' => '40701010101'
-    );
-  //Formular Conceptos
-    foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
-      $fnx = $obj['fn'];
-      $rs = $obj['rs'];     
-      eval('$valor = ' . $fnx);
-      $this->Beneficiario->Concepto[$rs] = array(
-        'mt' => round($valor,2), 
-        'ABV' =>  $obj['abv'], 
-        'TIPO' => $obj['tipo'],
-        'part' => $obj['part']
-      );
-      $valor = 0;
-    }  
+
+  function OperarCalculosFallecidos($spension = 0.00, $porc = 0.00){
+
+      $valor = 0;      
+      $automatico = 0;
+      $grado = $this->Beneficiario->grado_codigo;
+      $componente = $this->Beneficiario->componente_id;
+      $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
+      $sueldo_minimo = $this->Directiva['salario'];
+      $unidad_tributaria = $this->Directiva['ut'];
+      $porcentaje_pension = $this->Beneficiario->porcentaje;
+      $no_ascenso = 0;
+      $numero_hijos = 0;
    
+      $sueldo_base = $spension;
+      $sueldo_basico = $spension;
+      $prima_profesionalizacion_mt = 0;
+      $porcentaje_profesionalizacion = 0; 
+      $total_primas = 0;
+      $sueldo_mensual = $sueldo_base;
+      $pension = ($sueldo_base * $porc)/100; //Pension asignada por familiar con porcentaje
+      $this->Beneficiario->total_asignacion = $sueldo_base;
+       
+      $total_primas = 0;
+      
+      $this->Beneficiario->total_asignacion =  $sueldo_basico;
+
+      $sueldo_mensual = $pension;     
+      $this->Beneficiario->Concepto["sueldo_mensual"] = array(
+        'mt' => round($sueldo_mensual,2), 
+        'ABV' =>  "PENSION MILITAR", 
+        'TIPO' => 1,
+        'part' => '40701010101'
+      );
+      //Formular Conceptos
+      foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
+        $fnx = $obj['fn'];
+        $rs = $obj['rs'];     
+        eval('$valor = ' . $fnx);
+        $this->Beneficiario->Concepto[$rs] = array(
+          'mt' => round($valor,2), 
+          'ABV' =>  $obj['abv'], 
+          'TIPO' => $obj['tipo'],
+          'part' => $obj['part']
+        );
+        $valor = 0;
+      }  
+    
     
   }
 
