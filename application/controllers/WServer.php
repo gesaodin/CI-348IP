@@ -207,7 +207,7 @@ class WServer extends REST_Controller{
     public function gnomina_post(){
         $this->load->model('kernel/KSensor');
         $fecha = date('d/m/Y H:i:s');
-        $firma = md5($fecha);
+        $firma = $this->post("codigo"); //md5($fecha);
         $this->load->model('kernel/KCargador');
         $data['id'] = $this->post("id"); //Directiva
         $data['fecha'] = $this->post("fechainicio");

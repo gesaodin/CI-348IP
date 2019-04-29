@@ -81,9 +81,11 @@ class KCalculoLote extends CI_Model{
       'TIPO' => 97,
       'part' => '40701010101'
     );
-    $this->OperarCalculos();
-    $this->OperarConceptos();
-    $this->SueldoMensual();
+    //if ( $this->Beneficiario->situacion != "FCP"){
+      $this->OperarCalculos();
+      $this->OperarConceptos();
+      $this->SueldoMensual();
+   // }
 
   }
 
@@ -154,6 +156,56 @@ class KCalculoLote extends CI_Model{
       );
       //Formular Conceptos
       foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
+
+        $fnx = $obj['fn'];
+        $rs = $obj['rs'];
+        
+        eval('$valor = ' . $fnx);
+        $this->Beneficiario->Concepto[$rs] = array(
+          'mt' => round($valor,2), 
+          'ABV' =>  $obj['abv'], 
+          'TIPO' => $obj['tipo'],
+          'part' => $obj['part']
+        );
+        $valor = 0;
+      } 
+    }    
+  }
+
+  function OperarCalculosBono(){
+
+    if ( isset ( $this->Directiva['sb'][$this->Beneficiario->grado_codigo.'M']['mt']) ){
+      $lst =  $this->Directiva['sb'][$this->Beneficiario->grado_codigo.'M']['mt'];
+      $valor = 0;
+      $this->Beneficiario->monto_total_prima = 0;
+      $automatico = 0;
+      $grado = $this->Beneficiario->grado_codigo;
+      $componente = $this->Beneficiario->componente_id;
+      $tiempo_servicio = $this->Beneficiario->tiempo_servicio;
+      $sueldo_base = $this->Beneficiario->sueldo_base;
+      $sueldo_basico = $this->Beneficiario->sueldo_base;
+      $sueldo_minimo = $this->Directiva['salario'];
+      $unidad_tributaria = $this->Directiva['ut'];
+      $porcentaje_pension = $this->Beneficiario->porcentaje;
+      $no_ascenso = $this->Beneficiario->no_ascenso;
+      $numero_hijos = $this->Beneficiario->numero_hijos;
+      $prima_profesionalizacion_mt = $this->Beneficiario->prima_profesionalizacion_mt;
+      $porcentaje_profesionalizacion = $this->Beneficiario->prima_profesionalizacion_mt; 
+      $total_primas = 0;
+      $sueldo_mensual = $sueldo_base;
+      $pension = $sueldo_base;
+      $this->Beneficiario->total_asignacion = $sueldo_base;
+     
+      $this->Beneficiario->pension = $pension;
+      $this->Beneficiario->sueldo_mensual = $pension;
+      $this->Beneficiario->Concepto["sueldo_mensual"] = array(
+        'mt' => round($sueldo_mensual,2), 
+        'ABV' =>  "PENSION MILITAR", 
+        'TIPO' => 1,
+        'part' => '40701010101'
+      );
+      //Formular Conceptos
+      foreach ( $this->Directiva['fnxC'] as $Con => $obj ){
         $fnx = $obj['fn'];
         $rs = $obj['rs'];     
         eval('$valor = ' . $fnx);
@@ -164,7 +216,8 @@ class KCalculoLote extends CI_Model{
           'part' => $obj['part']
         );
         $valor = 0;
-      }  
+      } 
+
     }
     
   }
