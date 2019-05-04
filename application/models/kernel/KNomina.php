@@ -130,17 +130,24 @@ class KNomina extends CI_Model{
   public function ListarCuadreBanco($firma){
     
 
-    $sConsulta = "SELECT banc, bnc.nomb, cant, neto FROM (
-    SELECT  pg.banc, count(pg.banc) AS cant, SUM(neto) AS neto FROM space.nomina nm JOIN space.pagos pg ON pg.nomi=nm.oid
-    WHERE nm.llav='" . $firma . "'
-    GROUP BY  pg.banc
-    ORDER BY pg.banc) AS mt
-    LEFT JOIN space.banco bnc ON mt.banc=bnc.codi";
+    $sConsulta = "  SELECT banc, bnc.nomb, tp, cant, neto FROM (
+      SELECT  pg.banc, pg.tipo as tp, count(pg.banc) AS cant, SUM(neto) AS neto FROM space.nomina nm JOIN space.pagos pg ON pg.nomi=nm.oid
+      WHERE nm.llav='" . $firma . "'
+      GROUP BY  pg.banc, pg.tipo
+      ORDER BY pg.banc) AS mt
+      LEFT JOIN space.banco bnc ON mt.banc=bnc.codi
+      ORDER BY bnc.codi";
     
     $obj = $this->DBSpace->consultar($sConsulta);
     $lst = array();
     foreach($obj->rs as $c => $v ){
-      $lst[] = $v;
+
+      $lst[$v->banc][] = array(
+        'nomb' => $v->nomb,
+        'cant' => $v->cant,
+        'tipo' => $v->tp,
+        'neto' => $v->neto
+      );
     }
     return $lst;
   }
@@ -179,4 +186,28 @@ class KNomina extends CI_Model{
     }
     return $lst;
   }
+
+
+
+  public function ListarPagosDetalles($post){
+    if ( $post['codigo'] == "0000" ) {
+      $sqlMas = "' AND banc='" . $post['codigo'] . "'";
+    }else{
+      $sqlMas = "' AND banc='" . $post['codigo'] . "' AND p.tipo='" . $post['tipo'] . "'";
+    }
+    $sConsulta = "select p.nomb AS nombre, * from space.pagos p JOIN space.nomina n ON 
+    p.nomi=n.oid WHERE n.llav='" . $post['llave'] . 
+    $sqlMas;
+   
+    $obj = $this->DBSpace->consultar($sConsulta);
+    $lst = array();
+    foreach($obj->rs as $c => $v ){
+      $lst[] = $v;
+    }
+    return $lst;
+  }
+
+
+
+
 }

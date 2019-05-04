@@ -223,7 +223,8 @@ class KCargador extends CI_Model{
     
     $sConsulta = "
       SELECT
-        bnf.nombres, bnf.apellidos,
+        regexp_replace(bnf.nombres, '[^a-zA-Y0-9 ]', '', 'g') as nombres,
+        regexp_replace(bnf.apellidos, '[^a-zA-Y0-9 ]', '', 'g') as apellidos,
         bnf.cedula, fecha_ingreso,f_ult_ascenso, grado.codigo,grado.nombre as gnombre,
         bnf.componente_id, n_hijos, st_no_ascenso, bnf.status_id,
         st_profesion, monto_especial, anio_reconocido, mes_reconocido,dia_reconocido,bnf.status_id as status_id, 
@@ -282,7 +283,7 @@ class KCargador extends CI_Model{
     
 
     $sqlMJ = "INSERT INTO space.medidajudicial_detalle ( nomi, cedu, cben, bene, caut, naut, inst, tcue, ncue, pare, crea, usua, esta, mont ) VALUES ";
-    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, banc, nume, tipo, situ, esta, usua, neto, base, grad, caut ) VALUES ";
+    $sqlCVS = "INSERT INTO space.pagos ( nomi, did, cedu, nomb, calc, fech, banc, nume, tipo, situ, esta, usua, neto, base, grad, caut, naut,cfam ) VALUES ";
     
     $cant = count($this->_MapWNomina['Concepto']);
     $map = $this->_MapWNomina['Concepto'];
@@ -389,6 +390,9 @@ class KCargador extends CI_Model{
       $this->Cantidad = $this->OperarBeneficiarios;
       $this->Anomalia = $this->AnomaliaSobreviviente;
       $this->Paralizados = $this->ParalizadosSobrevivientes;
+    }else if($this->_MapWNomina["nombre"]=="DIFERENCIA DE SUELDO"){
+      $this->KNomina->Cantidad = $this->OperarBeneficiarios;
+      $this->Cantidad = $this->OperarBeneficiarios;
     }
     $this->KNomina->Actualizar();
 
@@ -541,7 +545,7 @@ class KCargador extends CI_Model{
         "','" . trim($Bnf->apellidos) . ", " . trim($Bnf->nombres) . "','" . 
         json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "','" . $Bnf->situacion . "'," . $Bnf->estatus_activo . 
-        ",'SSSIFANB'," . $neto . ", '" . $base . "','" . $Bnf->grado_nombre . "','')";
+        ",'SSSIFANB'," . $neto . ", '" . $base . "','" . $Bnf->grado_nombre . "','','','')";
 
       }else{      //En el caso que exista el recuerdo en la memoria   
         $medida = $this->calcularMedidaJudicial($this->KMedidaJudicial,  $Bnf,  $sqlID);
@@ -595,7 +599,7 @@ class KCargador extends CI_Model{
         "','" . trim($Bnf->apellidos) . ", " . trim($Bnf->nombres) . "','" . 
         json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', " . $Bnf->estatus_activo . 
-        ", 'SSSIFANB'," . $neto . ",'" . $base . "','" . $Bnf->grado_nombre . "','')";
+        ", 'SSSIFANB'," . $neto . ",'" . $base . "','" . $Bnf->grado_nombre . "','','','')";
         
       }
 
@@ -711,10 +715,10 @@ class KCargador extends CI_Model{
     $neto = $asignacion - $deduccion;
     
     if ($asignacion > 0 ){
-      $linea = $Bnf->cedula . ';' . trim($Bnf->apellidos) . ';' . trim($Bnf->nombres) . 
+        $linea = $Bnf->cedula . ';' . trim($Bnf->apellidos) . ';' . trim($Bnf->nombres) . 
         ';' .  $Bnf->tipo . ";'" . $Bnf->banco . ";'" . $Bnf->numero_cuenta . 
         ";" . $segmentoincial  . $asignacion . ';' . $deduccion . ';'  . $neto;
-      
+        $this->OperarBeneficiarios++;
         $this->KRecibo->conceptos = $recibo_de_pago;        
         $this->KRecibo->asignaciones = $asignacion;
         $this->KRecibo->deducciones = $deduccion;
@@ -725,7 +729,7 @@ class KCargador extends CI_Model{
         "','" . trim($Bnf->apellidos) . ", " . trim($Bnf->nombres) . "','" . 
         json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
         "','" . $Bnf->tipo . "','" . $Bnf->situacion . "'," . $Bnf->estatus_activo . 
-        ",'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . "','')";
+        ",'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . "','','','')";
         
     
     }else{
@@ -890,11 +894,12 @@ class KCargador extends CI_Model{
             $this->KRecibo->deducciones = $deduccion;
             $base = $Bnf->porcentaje . "|" . $Bnf->componente_id . "|" . $Bnf->grado_codigo . "|" . $Bnf->grado_nombre;
             $registro .= $this->ComaFallecidos . "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
-            "','" . trim($Bnf->apellidos) . ", " . trim($Bnf->nombres) . "','" . 
-            json_encode($this->KRecibo) . "',Now(),'" . $Bnf->banco . "','" . $Bnf->numero_cuenta . 
-            "','" . $Bnf->tipo . "', '" . $Bnf->situacion . "', " . $Bnf->estatus_activo . 
-            ", 'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . "','" . $PS[$i]['autorizado'] . "')";
-
+            "','" . trim($PS[$i]['apellidos']) . ", " . trim($PS[$i]['nombres']) . "','" . 
+            json_encode($this->KRecibo) . "',Now(),'" . $PS[$i]['banco'] . "','" . $PS[$i]['numero'] . 
+            "','" . $PS[$i]['tipo'] . "', '" . $Bnf->situacion . "', " . $Bnf->estatus_activo . 
+            ", 'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . 
+            "','" . $PS[$i]['autorizado'] . "','" . strtoupper($PS[$i]['nautorizado']) . "','" . $PS[$i]['cedula'] . "')";
+            
           }else{
             $this->SinPagos++;
             $log .= $segmentoincial . 
@@ -1058,10 +1063,11 @@ private function generarConPatronesFCPDIF(MBeneficiario &$Bnf, KCalculoLote &$Ca
           //Insert a Postgres
           $base = $Bnf->porcentaje . "|" . $Bnf->componente_id . "|" . $Bnf->grado_codigo . "|" . $Bnf->grado_nombre; 
           $registro .= $coma . "(" . $sqlID . "," . $Directivas['oid'] . ",'" . $Bnf->cedula . 
-          "','" . trim($Bnf->apellidos) . ", " . trim($Bnf->nombres) . "','" . 
+          "','" . trim($PS[$i]['apellidos']) . ", " . trim($PS[$i]['nombres']) . "','" . 
           json_encode($this->KRecibo) . "',Now(),'" .  $PS[$i]['banco']  . "','" . $PS[$i]['numero'] . 
           "','" . $PS[$i]['tipo'] . "','" . $Bnf->situacion . "'," . $Bnf->estatus_activo . 
-          ",'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . "','" . $PS[$i]['autorizado'] . "')";
+          ",'SSSIFANB'," . $neto . ", '" . $base . "', '" . $Bnf->grado_nombre . 
+          "','" . $PS[$i]['autorizado'] . "','" . strtoupper($PS[$i]['nautorizado']) . "','" . $PS[$i]['cedula'] . "')";
           $this->Asignacion += $asignacion;
           $this->Deduccion += $deduccion;
           
@@ -1167,6 +1173,7 @@ private function generarConPatronesFCPDIF(MBeneficiario &$Bnf, KCalculoLote &$Ca
     return $monto;
   }
   private function obtenerArchivos( MBeneficiario &$Bnf, $concepto  ){
+    //print_r($this->Archivos[$concepto][$Bnf->cedula]);
     $monto = $this->KArchivos->Ejecutar($Bnf->cedula, $concepto, $this->Archivos);
     return $monto;
   }
@@ -1281,8 +1288,12 @@ private function generarConPatronesFCPDIF(MBeneficiario &$Bnf, KCalculoLote &$Ca
 
 
   public function cargarFamiliaresFCP(){
-    $sConsulta = "SELECT bnf.cedula AS cedu, fam.cedula, fam.nombres, fam.apellidos, 
-      fam.parentesco, fam.autorizado, fam.tipo, fam.banco, fam.numero,
+    $sConsulta = "SELECT bnf.cedula AS cedu, fam.cedula, 
+      regexp_replace(fam.nombres, '[^a-zA-Y0-9 ]', '', 'g') as nombres, 
+      regexp_replace(fam.apellidos, '[^a-zA-Y0-9 ]', '', 'g') as apellidos, 
+      fam.parentesco, fam.autorizado, 
+      regexp_replace(fam.nombre_autorizado, '[^a-zA-Y0-9 ]', '', 'g') as nombre_autorizado,  
+      fam.tipo, fam.banco, fam.numero,
       fam.porcentaje, fam.motivo, fam.estatus
     FROM beneficiario bnf  JOIN familiar fam ON bnf.cedula=fam.titular";
     $obj = $this->DBSpace->consultar($sConsulta);
@@ -1293,6 +1304,7 @@ private function generarConPatronesFCPDIF(MBeneficiario &$Bnf, KCalculoLote &$Ca
           "apellidos" => $v->apellidos,
           "parentesco" => $v->parentesco,
           "autorizado" => $v->autorizado,
+          "nautorizado" => $v->nombre_autorizado,
           "tipo" => $v->tipo,
           "estatus" => $v->estatus,
           "banco" => $v->banco,
